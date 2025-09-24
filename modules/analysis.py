@@ -2,8 +2,9 @@
 
 import pandas as pd
 import numpy as np
-from climate_indices import indices, compute # <-- 1. IMPORTACIÓN CORREGIDA
-
+from climate_indices import indices
+from climate_indices.compute import Periodicity 
+from climate_indices.indices import Distribution # <-- 1. IMPORTACIÓN CORREGIDA
 from scipy.stats import gamma, norm, loglaplace
 from modules.config import Config
 
@@ -16,15 +17,15 @@ def calculate_spi(series, window):
     series = series.sort_index().asfreq('MS')
     data = series.dropna().to_numpy()
     
-    if len(data) < window * 2: # Validación para tener suficientes datos
+    if len(data) < window * 2: 
         return pd.Series(dtype=float)
 
     # --- 2. Se usan los objetos enumeradores correctos ---
     spi_values = indices.spi(
         values=data,
         scale=window,
-        distribution=compute.Distribution.gamma,
-        periodicity=compute.Periodicity.monthly,
+        distribution=Distribution.gamma,
+        periodicity=Periodicity.monthly,
         data_start_year=series.index.min().year,
         calibration_year_initial=series.index.min().year,
         calibration_year_final=series.index.max().year
@@ -100,8 +101,8 @@ def calculate_spei(precip_series, et_series, scale):
         precips_mm=df['precip'].to_numpy(),
         pet_mm=df['et'].to_numpy(),
         scale=scale,
-        distribution=compute.Distribution.log_logistic,
-        periodicity=compute.Periodicity.monthly,
+        distribution=Distribution.log_logistic,
+        periodicity=Periodicity.monthly,
         data_start_year=df.index.min().year,
         calibration_year_initial=df.index.min().year,
         calibration_year_final=df.index.max().year
