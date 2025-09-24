@@ -15,16 +15,16 @@ def calculate_spi(series, window):
     series = series.sort_index().asfreq('MS')
     data = series.dropna().to_numpy()
     
-    if len(data) < window * 2: # Validación para tener suficientes datos
+    if len(data) < window * 2:
         return pd.Series(dtype=float)
 
     # --- INICIO DE LA CORRECCIÓN ---
-    # Se usan strings para los argumentos 'distribution' y 'periodicity'
+    # Se usan los objetos enumeradores correctos de la librería
     spi_values = indices.spi(
         values=data,
         scale=window,
-        distribution='gamma',
-        periodicity='monthly',
+        distribution=indices.Distribution.gamma,
+        periodicity=indices.Periodicity.monthly, # <-- CORREGIDO
         data_start_year=series.index.min().year,
         calibration_year_initial=series.index.min().year,
         calibration_year_final=series.index.max().year
@@ -93,17 +93,17 @@ def calculate_spei(precip_series, et_series, scale):
     df = df.sort_index().asfreq('MS')
     df.dropna(inplace=True)
     
-    if len(df) < scale * 2: # Validación para tener suficientes datos
+    if len(df) < scale * 2:
         return pd.Series(dtype=float)
 
     # --- INICIO DE LA CORRECCIÓN ---
-    # Se usan strings para los argumentos 'distribution' y 'periodicity'
+    # Se usan los objetos enumeradores correctos de la librería
     spei_values = indices.spei(
         precips_mm=df['precip'].to_numpy(),
         pet_mm=df['et'].to_numpy(),
         scale=scale,
-        distribution='log-logistic',
-        periodicity='monthly',
+        distribution=indices.Distribution.log_logistic, # <-- CORREGIDO
+        periodicity=indices.Periodicity.monthly,      # <-- CORREGIDO
         data_start_year=df.index.min().year,
         calibration_year_initial=df.index.min().year,
         calibration_year_final=df.index.max().year
