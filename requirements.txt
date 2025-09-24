@@ -1,25 +1,23 @@
-# requirements.txt
-
 streamlit
 pandas
 altair
 folium
 plotly
-# geopandas  <-- Deshabilitado temporalmente
+# geopandas
 scipy
 prophet
 streamlit-folium
 numpy
 branca
 openpyxl
-# rasterstats <-- Deshabilitado temporalmente
+# rasterstats
 xarray
 Pillow
-# rioxarray  <-- Deshabilitado temporalmente
+# rioxarray
 statsmodels
 scikit-learn
 pymannkendall
 # gstools
-# rasterio   <-- Deshabilitado temporalmente
+# rasterio
 fpdf2
 climate-indices
