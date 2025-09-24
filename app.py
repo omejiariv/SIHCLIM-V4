@@ -112,6 +112,14 @@ def main():
                     type=["tif", "tiff"]
                 )
 
+    if st.session_state.get('data_loaded', False) and st.session_state.get('df_long') is not None:
+        # Si se sube un DEM, extrae la elevación y la añade al GeoDataFrame de estaciones
+        if uploaded_dem_file:
+            st.session_state.gdf_stations = extract_elevation_from_dem(
+                st.session_state.gdf_stations,
+                uploaded_dem_file
+            )  
+
         # --- FUNCIÓN DE FILTRADO (Se mantiene aquí por acoplamiento con Streamlit Session State)
         def apply_filters_to_stations(df, min_perc, altitudes, regions, municipios, celdas):
             stations_filtered = df.copy()
