@@ -1,12 +1,12 @@
-streamlit
+# requirements.txt
+
 pandas
 altair
 folium
 plotly
-# geopandas
+# geopandas  <-- Mantenemos deshabilitado por ahora para asegurar el despliegue
 scipy
 prophet
-streamlit-folium
 numpy
 branca
 openpyxl
@@ -21,3 +21,7 @@ pymannkendall
 # rasterio
 fpdf2
 climate-indices
+
+# Nuevas librerías para Dash
+dash
+dash-bootstrap-components
