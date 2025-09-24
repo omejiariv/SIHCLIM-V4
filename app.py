@@ -58,7 +58,22 @@ def main():
                     unsafe_allow_html=True)
 
     st.sidebar.header("Panel de Control")
+    with st.sidebar.expander("Generación de Reportes"):
+        if st.button("Generar Reporte PDF"):
+            if 'report_fig_anual_avg' in st.session_state and 'report_df_stats_summary' in st.session_state:
+                with st.spinner("Generando reporte PDF..."):
+                    pdf_bytes = generate_pdf_report()
+                    st.session_state['pdf_report_bytes'] = pdf_bytes
+            else:
+                st.warning("Por favor, navegue primero a las pestañas 'Gráficos' y 'Estadísticas' para generar el contenido del reporte.")
 
+        if 'pdf_report_bytes' in st.session_state:
+            st.download_button(
+                label="📥 Descargar Reporte PDF",
+                data=st.session_state['pdf_report_bytes'],
+                file_name=f"reporte_sihclim_{datetime.now().strftime('%Y%m%d')}.pdf",
+                mime="application/pdf"
+            )
     # ----------------------------------------------------
     # Bloque de Carga de Archivos
     # ----------------------------------------------------
