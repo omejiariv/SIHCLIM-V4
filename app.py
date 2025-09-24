@@ -1,4 +1,4 @@
-# app.py
+# app.py (versión completa)
 # -*- coding: utf-8 -*-
 
 import streamlit as st
@@ -16,6 +16,9 @@ from modules.visualizer import (
     display_stats_tab, display_correlation_tab, display_enso_tab,
     display_trends_and_forecast_tab, display_downloads_tab, display_station_table_tab
 )
+from datetime import datetime
+from modules.utils import generate_pdf_report
+
 
 # Desactivar Warnings
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -23,7 +26,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 def main():
     st.set_page_config(layout="wide", page_title=Config.APP_TITLE)
-
+    
     st.markdown("""
     <style>
     div.block-container {padding-top: 2rem;}
@@ -45,25 +48,44 @@ def main():
                     unsafe_allow_html=True)
 
     st.sidebar.header("Panel de Control")
+    
+    # El código para el reporte PDF puede permanecer, ya que no depende de las librerías geoespaciales
+    with st.sidebar.expander("Generación de Reportes"):
+        if st.button("Generar Reporte PDF"):
+            if 'report_fig_anual_avg' in st.session_state and 'report_df_stats_summary' in st.session_state:
+                with st.spinner("Generando reporte PDF..."):
+                    pdf_bytes = generate_pdf_report()
+                    st.session_state['pdf_report_bytes'] = pdf_bytes
+            else:
+                st.warning("Por favor, navegue primero a las pestañas 'Gráficos' y 'Estadísticas' para generar el contenido del reporte.")
+        if 'pdf_report_bytes' in st.session_state:
+            st.download_button(
+                label="📥 Descargar Reporte PDF",
+                data=st.session_state['pdf_report_bytes'],
+                file_name=f"reporte_sihclim_{datetime.now().strftime('%Y%m%d')}.pdf",
+                mime="application/pdf"
+            )
 
     with st.sidebar.expander("**Cargar Archivos**", expanded=not st.session_state.get('data_loaded', False)):
         uploaded_file_mapa = st.file_uploader("1. Cargar archivo de estaciones (CSV)", type="csv")
         uploaded_file_precip = st.file_uploader("2. Cargar archivo de precipitación (CSV)", type="csv")
-        uploaded_zip_shapefile = st.file_uploader("3. Cargar shapefile de municipios (.zip)", type="zip")
+        # El cargador de shapefile se deshabilita
+        uploaded_zip_shapefile = st.file_uploader("3. Cargar shapefile de municipios (.zip) - Deshabilitado", type="zip", disabled=True)
 
-        if not st.session_state.get('data_loaded', False) and all([uploaded_file_mapa, uploaded_file_precip, uploaded_zip_shapefile]):
+        if not st.session_state.get('data_loaded', False) and all([uploaded_file_mapa, uploaded_file_precip]):
             with st.spinner("Procesando archivos y cargando datos..."):
-                gdf_stations, gdf_municipios, df_long, df_enso = load_and_process_all_data(
-                    uploaded_file_mapa, uploaded_file_precip, uploaded_zip_shapefile)
-            if gdf_stations is not None and df_long is not None:
-                st.session_state.gdf_stations = gdf_stations
-                st.session_state.gdf_municipios = gdf_municipios
+                # Pasamos None para el shapefile
+                df_stations, gdf_municipios, df_long, df_enso = load_and_process_all_data(
+                    uploaded_file_mapa, uploaded_file_precip, None)
+            if df_stations is not None and df_long is not None:
+                st.session_state.gdf_stations = df_stations # Ahora es un DataFrame normal, pero mantenemos el nombre por consistencia
+                st.session_state.gdf_municipios = gdf_municipios # Será None
                 st.session_state.df_long = df_long
                 st.session_state.df_enso = df_enso
                 st.session_state.data_loaded = True
                 st.rerun()
             else:
-                st.error("Hubo un error al procesar los archivos.")
+                st.error("Hubo un error al procesar los archivos CSV.")
 
         if st.button("Recargar Datos"):
             st.cache_data.clear()
@@ -71,7 +93,7 @@ def main():
             for key in keys_to_clear:
                 del st.session_state[key]
             st.rerun()
-            
+
     if st.session_state.get('data_loaded', False) and st.session_state.get('df_long') is not None:
         
         def apply_filters_to_stations(df, min_perc, altitudes, regions, municipios, celdas):
