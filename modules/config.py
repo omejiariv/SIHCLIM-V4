@@ -108,4 +108,4 @@ class Config:
         }
         for key, value in state_defaults.items():
             if key not in st.session_state:
-                st.session_state[key] = val
+                st.session_state[key] = value
