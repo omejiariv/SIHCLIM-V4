@@ -1,64 +1,93 @@
-# modules/utils.py
+# En modules/utils.py
 
-import streamlit as st
+# ... (tus otras importaciones y funciones existentes) ...
 import io
-import plotly.graph_objects as go 
-import folium 
-import pandas as pd
-import numpy as np
+from fpdf import FPDF
+import streamlit as st
+from datetime import datetime
 
-# --- NUEVA FUNCIÓN PARA CORRECCIÓN NUMÉRICA ---
-@st.cache_data
-def standardize_numeric_column(series):
+# Clase para definir el formato del PDF con encabezado y pie de página
+class PDF(FPDF):
+    def header(self):
+        self.set_font('Arial', 'B', 12)
+        self.cell(0, 10, 'Reporte - Sistema de Información de Lluvias y Clima', 0, 1, 'C')
+        self.ln(10)
+
+    def footer(self):
+        self.set_y(-15)
+        self.set_font('Arial', 'I', 8)
+        page_num = self.page_no()
+        self.cell(0, 10, f'Página {page_num}', 0, 0, 'C')
+
+def generate_pdf_report():
     """
-    Convierte una serie de Pandas a valores numéricos de manera robusta,
-    reemplazando comas por puntos como separador decimal.
+    Genera un reporte en PDF resumiendo el análisis actual.
     """
-    series_clean = series.astype(str).str.replace(',', '.', regex=False)
-    return pd.to_numeric(series_clean, errors='coerce')
+    pdf = PDF()
+    pdf.add_page()
+    pdf.set_font('Arial', '', 12)
 
+    # 1. Título y Fecha
+    pdf.set_font('Arial', 'B', 16)
+    pdf.cell(0, 10, 'Resumen del Análisis de Precipitación', 0, 1, 'L')
+    pdf.set_font('Arial', '', 10)
+    pdf.cell(0, 8, f"Generado el: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", 0, 1, 'L')
+    pdf.ln(5)
 
-def display_plotly_download_buttons(fig, file_prefix):
-    """Muestra botones de descarga para un gráfico Plotly (HTML y PNG).""" 
-    st.markdown("---")
-    col1, col2 = st.columns(2)
+    # 2. Resumen de Filtros Activos
+    pdf.set_font('Arial', 'B', 12)
+    pdf.cell(0, 10, 'Filtros Aplicados', 0, 1, 'L')
+    pdf.set_font('Arial', '', 10)
     
-    with col1:
-        html_buffer = io.StringIO()
-        fig.write_html(html_buffer, include_plotlyjs='cdn')
-        st.download_button(
-            label="Descargar Gráfico (HTML)",
-            data=html_buffer.getvalue(),
-            file_name=f"{file_prefix}.html",
-            mime="text/html",
-            key=f"dl_html_{file_prefix}",
-            use_container_width=True
+    # Extraer filtros del session_state
+    year_range_val = st.session_state.get('year_range', ('N/A', 'N/A'))
+    if isinstance(year_range_val[0], int): # Modo normal
+        pdf.multi_cell(0, 5, f"- Período: {year_range_val[0]} - {year_range_val[1]}")
+    
+    selected_stations = st.session_state.get('station_multiselect', [])
+    pdf.multi_cell(0, 5, f"- Estaciones seleccionadas: {len(selected_stations)}")
+    # (Puedes añadir más filtros aquí si lo deseas)
+    pdf.ln(10)
+
+    # 3. Añadir Gráficos (si existen)
+    if 'report_fig_anual_avg' in st.session_state:
+        pdf.set_font('Arial', 'B', 12)
+        pdf.cell(0, 10, 'Gráfico: Precipitación Media Multianual', 0, 1, 'L')
+        
+        fig = st.session_state['report_fig_anual_avg']
+        # Guardar la figura en un buffer de memoria como imagen PNG
+        img_bytes = io.BytesIO()
+        fig.write_image(img_bytes, format='png', width=800, height=400, scale=2)
+        img_bytes.seek(0)
+        
+        # Insertar la imagen en el PDF (w=190mm para que ocupe casi todo el ancho)
+        pdf.image(img_bytes, x=10, w=190)
+        pdf.ln(10)
+
+    # 4. Añadir Tablas (si existen)
+    if 'report_df_stats_summary' in st.session_state:
+        pdf.set_font('Arial', 'B', 12)
+        pdf.cell(0, 10, 'Tabla: Resumen de Estadísticas Mensuales', 0, 1, 'L')
+        pdf.set_font('Courier', '', 8) # Usar fuente monoespaciada para tablas
+
+        df_summary = st.session_state['report_df_stats_summary']
+        
+        # Convertir DataFrame a un texto simple formateado para el PDF
+        header = "{:<25} | {:>10} | {:>10} | {:>10}".format(
+            "Estación", "Máx (mm)", "Prom (mm)", "Mín (mm)"
         )
-
-    with col2:
-        try:
-            img_bytes = fig.to_image(format="png", width=1200, height=700, scale=2)
-            st.download_button(
-                label="Descargar Gráfico (PNG)",
-                data=img_bytes,
-                file_name=f"{file_prefix}.png",
-                mime="image/png",
-                key=f"dl_png_{file_prefix}",
-                use_container_width=True
+        pdf.cell(0, 5, header, 0, 1)
+        pdf.cell(0, 2, "-"*65, 0, 1)
+        
+        for index, row in df_summary.iterrows():
+            line = "{:<25.25} | {:>10.0f} | {:>10.0f} | {:>10.0f}".format(
+                row['Estación'],
+                row['Ppt. Máxima Mensual (mm)'],
+                row['Promedio Mensual (mm)'],
+                row['Ppt. Mínima Mensual (mm)']
             )
-        except Exception as e:
-            st.warning("No se pudo generar la imagen PNG. Asegúrate de tener la librería 'kaleido' instalada ('pip install kaleido').")
+            pdf.cell(0, 5, line, 0, 1)
+        pdf.ln(10)
 
-def add_folium_download_button(map_object, file_name):
-    """Muestra un botón de descarga para un mapa de Folium (HTML)."""
-    st.markdown("---")
-    map_buffer = io.BytesIO()
-    map_object.save(map_buffer, close_file=False)
-    st.download_button(
-        label="Descargar Mapa (HTML)",
-        data=map_buffer.getvalue(),
-        file_name=file_name,
-        mime="text/html",
-        key=f"dl_map_{file_name.replace('.', '_')}",
-        use_container_width=True
-    )
+    # Retornar el PDF como bytes
+    return pdf.output(dest='S').encode('latin-1')
