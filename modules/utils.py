@@ -53,7 +53,7 @@ def generate_pdf_report():
     pdf.set_font('Arial', 'B', 16)
     pdf.cell(0, 10, 'Resumen del Análisis de Precipitación', 0, 1, 'L')
     pdf.set_font('Arial', '', 10)
-    pdf.cell(0, 8, f"Generado el: {datetime.now().strftime('%Y%m%d_%H%M%S')}", 0, 1, 'L')
+    pdf.cell(0, 8, f"Generado el: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", 0, 1, 'L')
     pdf.ln(5)
 
     # 2. Resumen de Filtros Activos
@@ -66,11 +66,9 @@ def generate_pdf_report():
     if isinstance(year_range_val[0], int): # Modo normal
         pdf.multi_cell(0, 5, f"- Período: {year_range_val[0]} - {year_range_val[1]}")
     
-    # --- INICIO DE LA CORRECCIÓN ---
-    # En lugar de imprimir la lista completa, solo mostramos la cantidad.
+    # Se muestra solo la cantidad de estaciones para evitar errores de texto largo
     num_selected_stations = len(st.session_state.get('station_multiselect', []))
     pdf.multi_cell(0, 5, f"- Número de estaciones seleccionadas: {num_selected_stations}")
-    # --- FIN DE LA CORRECCIÓN ---
     
     pdf.ln(10)
 
@@ -111,4 +109,5 @@ def generate_pdf_report():
             pdf.cell(0, 5, line, 0, 1)
         pdf.ln(10)
 
+    # Retornar el PDF como bytes
     return pdf.output(dest='S').encode('latin-1')
