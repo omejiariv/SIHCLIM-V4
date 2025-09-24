@@ -2,7 +2,7 @@
 
 import pandas as pd
 import numpy as np
-from climate_indices import indices  # <-- IMPORTACIÓN CORREGIDA
+from climate_indices import indices
 from scipy.stats import gamma, norm, loglaplace
 from modules.config import Config
 
@@ -12,24 +12,25 @@ def calculate_spi(series, window):
     """
     Calcula el Índice Estandarizado de Precipitación (SPI) para una serie de tiempo.
     """
-    # 1. Asegurarse de que la serie tenga un índice de fecha y frecuencia mensual
     series = series.sort_index().asfreq('MS')
-    
-    # 2. Convertir la serie a un array de numpy para la librería
     data = series.dropna().to_numpy()
     
-    # 3. Usar la función de la librería para calcular el SPI
+    if len(data) < window * 2: # Validación para tener suficientes datos
+        return pd.Series(dtype=float)
+
+    # --- INICIO DE LA CORRECCIÓN ---
+    # Se usan strings para los argumentos 'distribution' y 'periodicity'
     spi_values = indices.spi(
-        data,
+        values=data,
         scale=window,
-        distribution=indices.Distribution.gamma,
-        periodicity=indices.Periodicity.monthly,
+        distribution='gamma',
+        periodicity='monthly',
         data_start_year=series.index.min().year,
         calibration_year_initial=series.index.min().year,
         calibration_year_final=series.index.max().year
     )
+    # --- FIN DE LA CORRECCIÓN ---
     
-    # 4. Reconstruir la serie de Pandas con el índice original
     return pd.Series(spi_values, index=series.index[-len(spi_values):])
 
 
@@ -88,28 +89,25 @@ def calculate_spei(precip_series, et_series, scale):
     """
     scale = int(scale)
     
-    # 1. Preparar los datos
     df = pd.DataFrame({'precip': precip_series, 'et': et_series})
-    df = df.sort_index().asfreq('MS') # Asegurar frecuencia mensual
-    water_balance = (df['precip'] - df['et']).dropna()
+    df = df.sort_index().asfreq('MS')
+    df.dropna(inplace=True)
     
-    if water_balance.empty:
+    if len(df) < scale * 2: # Validación para tener suficientes datos
         return pd.Series(dtype=float)
 
-    # 2. Convertir la serie a un array de numpy para la librería
-    data = water_balance.to_numpy()
-
-    # --- LLAMADA CORREGIDA A LA LIBRERÍA ---
+    # --- INICIO DE LA CORRECCIÓN ---
+    # Se usan strings para los argumentos 'distribution' y 'periodicity'
     spei_values = indices.spei(
-        precips_mm=df['precip'].to_numpy(), # SPEI requiere precipitación y PET por separado
+        precips_mm=df['precip'].to_numpy(),
         pet_mm=df['et'].to_numpy(),
         scale=scale,
-        distribution=indices.Distribution.log_logistic,
-        periodicity=indices.Periodicity.monthly,
-        data_start_year=water_balance.index.min().year,
-        calibration_year_initial=water_balance.index.min().year,
-        calibration_year_final=water_balance.index.max().year
+        distribution='log-logistic',
+        periodicity='monthly',
+        data_start_year=df.index.min().year,
+        calibration_year_initial=df.index.min().year,
+        calibration_year_final=df.index.max().year
     )
+    # --- FIN DE LA CORRECCIÓN ---
     
-    # 4. Reconstruir la serie de Pandas con el índice original
-    return pd.Series(spei_values, index=water_balance.index[-len(spei_values):])
+    return pd.Series(spei_values, index=df.index[-len(spei_values):])
