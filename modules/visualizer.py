@@ -436,13 +436,18 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                     if "Mayor a Menor" in sort_order: df_summary = df_summary.sort_values(Config.PRECIPITATION_COL, ascending=False)
                     elif "Menor a Mayor" in sort_order: df_summary = df_summary.sort_values(Config.PRECIPITATION_COL, ascending=True)
                     else: df_summary = df_summary.sort_values(Config.STATION_NAME_COL, ascending=True)
+                    
                     fig_avg = px.bar(df_summary, x=Config.STATION_NAME_COL,
-                    st.session_state['report_fig_anual_avg'] = fig_avg                
                                      y=Config.PRECIPITATION_COL,
                                      title=f'Promedio de Precipitación Anual por Estación ({year_min} - {year_max})',
                                      labels={Config.STATION_NAME_COL: 'Estación', Config.PRECIPITATION_COL: 'Precipitación Media Anual (mm)'},
                                      color=Config.PRECIPITATION_COL,
                                      color_continuous_scale=px.colors.sequential.Blues_r)
+                    
+                    # --- LÍNEA CORREGIDA Y REUBICADA ---
+                    # Guardamos la figura en el estado de la sesión para el reporte
+                    st.session_state['report_fig_anual_avg'] = fig_avg
+                    
                     fig_avg.update_layout(height=500,
                                           xaxis={'categoryorder': 'total descending' if "Mayor a Menor" in sort_order
                                                  else ('total ascending' if "Menor a Mayor" in sort_order else 'trace')})
