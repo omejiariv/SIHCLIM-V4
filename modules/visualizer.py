@@ -19,6 +19,7 @@ import matplotlib.cm as mpl_cm
 from pykrige.ok import OrdinaryKriging
 from scipy import stats
 from scipy.interpolate import Rbf
+from modules.interpolation import create_interpolation_surface
 import pymannkendall as mk
 from prophet.plot import plot_plotly
 import io
@@ -678,95 +679,6 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                 df_regional_avg_display = df_regional_avg.rename(columns={'Precipitación Promedio': 'Precipitación Promedio Regional (mm)'})
                 st.dataframe(df_regional_avg_display.round(1), use_container_width=True)
 
-def generate_interpolation_data(year, method, variogram_model, gdf_filtered_map, df_anual_non_na):
-    """
-    Genera datos y gráficos para la interpolación espacial.
-    Usa gstools para un Kriging y variograma robustos.
-    """
-    data_year_with_geom = pd.merge(
-        df_anual_non_na[df_anual_non_na[Config.YEAR_COL] == year],
-        gdf_filtered_map[[Config.STATION_NAME_COL, Config.LATITUDE_COL,
-                          Config.LONGITUDE_COL]].drop_duplicates(),
-        on=Config.STATION_NAME_COL
-    )
-
-    df_clean = data_year_with_geom.dropna(subset=[Config.LONGITUDE_COL, Config.LATITUDE_COL, Config.PRECIPITATION_COL]).copy()
-    df_clean = df_clean[np.isfinite(df_clean[[Config.LONGITUDE_COL, Config.LATITUDE_COL, Config.PRECIPITATION_COL]]).all(axis=1)]
-    df_clean = df_clean.drop_duplicates(subset=[Config.LONGITUDE_COL, Config.LATITUDE_COL])
-
-    if len(df_clean) < 4:
-        fig = go.Figure()
-        fig.update_layout(title=f"Datos insuficientes para {method} en {year} (se necesitan >= 4)",
-                          xaxis_visible=False, yaxis_visible=False)
-        return fig, None, f"Error: No hay suficientes datos para el año {year}"
-
-    lons = df_clean[Config.LONGITUDE_COL].values
-    lats = df_clean[Config.LATITUDE_COL].values
-    vals = df_clean[Config.PRECIPITATION_COL].values
-    
-    bounds = gdf_filtered_map.total_bounds
-    grid_lon = np.linspace(bounds[0] - 0.1, bounds[2] + 0.1, 100)
-    grid_lat = np.linspace(bounds[1] - 0.1, bounds[3] + 0.1, 100)
-    z_grid, fig_variogram, error_message = None, None, None
-
-    try:
-        if method == "Kriging Ordinario":
-            # --- INICIO DE LA LÓGICA CON GSTOOLS ---
-            # 1. Definir el modelo de covarianza (variograma)
-            if variogram_model == 'gaussian':
-                model = gs.Gaussian(dim=2)
-            elif variogram_model == 'exponential':
-                model = gs.Exponential(dim=2)
-            elif variogram_model == 'spherical':
-                model = gs.Spherical(dim=2)
-            else: # linear
-                model = gs.Linear(dim=2)
-
-            # 2. Calcular y ajustar el variograma experimental
-            bin_center, gamma = gs.vario_estimate((lons, lats), vals)
-            model.fit_variogram(bin_center, gamma, nugget=True)
-            
-            # 3. Crear la figura del variograma con Matplotlib
-            fig_variogram, ax = plt.subplots()
-            ax.plot(bin_center, gamma, 'o', label='Experimental')
-            model.plot(ax=ax, label='Modelo Ajustado')
-            ax.set_xlabel('Distancia (grados)')
-            ax.set_ylabel('Semivarianza')
-            ax.set_title(f'Variograma para {year}')
-            ax.legend()
-
-            # 4. Realizar el Kriging Ordinario
-            krig = gs.krige.Ordinary(model, (lons, lats), vals)
-            z_grid, _ = krig.structured([grid_lon, grid_lat])
-            # --- FIN DE LA LÓGICA CON GSTOOLS ---
-
-        elif method == "IDW":
-            z_grid = interpolate_idw(lons, lats, vals, grid_lon, grid_lat)
-        elif method == "Spline (Thin Plate)":
-            rbf = Rbf(lons, lats, vals, function='thin_plate')
-            grid_x, grid_y = np.meshgrid(grid_lon, grid_lat)
-            z_grid = rbf(grid_x, grid_y)
-
-    except Exception as e:
-        error_message = f"Error al calcular {method} para el año {year}: {e}"
-        return go.Figure().update_layout(title=error_message), None, error_message
-
-    if z_grid is not None:
-        fig = go.Figure(data=go.Contour(z=z_grid.T, x=grid_lon, y=grid_lat,
-                                        colorscale=px.colors.sequential.YlGnBu,
-                                        contours=dict(showlabels=True,
-                                                      labelfont=dict(size=10, color='white'),
-                                                      labelformat=".0f")))
-        
-        fig.add_trace(go.Scatter(x=lons, y=lats, mode='markers', marker=dict(color='red', size=5), name='Estaciones',
-                                 text=[f"{row[Config.STATION_NAME_COL]}: {row[Config.PRECIPITATION_COL]:.0f} mm" for _, row in df_clean.iterrows()],
-                                 hoverinfo='text'))
-        
-        fig.update_layout(title=f"Precipitación en {year} ({method})", height=600)
-        return fig, fig_variogram, None
-
-    return go.Figure().update_layout(title="Error: Método no implementado"), None, "Error: Método no implementado"
-
 def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melted, df_monthly_filtered):
     st.header("Mapas Avanzados")
     if not stations_for_analysis:
@@ -1070,34 +982,38 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
         elif df_anual_non_na.empty or len(df_anual_non_na[Config.YEAR_COL].unique()) == 0:
             st.warning("No hay suficientes datos anuales para realizar la interpolación.")
         else:
-            min_year, max_year = int(df_anual_non_na[Config.YEAR_COL].min()), \
-                int(df_anual_non_na[Config.YEAR_COL].max())
+            min_year, max_year = int(df_anual_non_na[Config.YEAR_COL].min()), int(df_anual_non_na[Config.YEAR_COL].max())
 
             control_col, map_col1, map_col2 = st.columns([1, 2, 2])
             with control_col:
                 st.markdown("##### Controles de los Mapas")
+                
+                # --- INICIO DE LA MODIFICACIÓN ---
+                interpolation_methods = ["Kriging Ordinario", "IDW", "Spline (Thin Plate)"]
+                # Añadir KED solo si la columna de elevación existe
+                if Config.ELEVATION_COL in gdf_filtered.columns:
+                    interpolation_methods.insert(1, "Kriging con Deriva Externa (KED)")
+
                 st.markdown("**Mapa 1**")
                 year1 = st.slider("Seleccione el año", min_year, max_year, max_year, key="interp_year1")
-                method1 = st.selectbox("Método de interpolación", options=["Kriging Ordinario", "IDW",
-                                                                           "Spline (Thin Plate)"], key="interp_method1")
+                method1 = st.selectbox("Método de interpolación", options=interpolation_methods, key="interp_method1")
                 variogram_model1 = None
-                if method1 == "Kriging Ordinario":
+                if "Kriging" in method1:
                     variogram_options = ['linear', 'spherical', 'exponential', 'gaussian']
                     variogram_model1 = st.selectbox("Modelo de Variograma para Mapa 1", variogram_options, key="var_model_1")
 
                 st.markdown("---")
                 st.markdown("**Mapa 2**")
-                year2 = st.slider("Seleccione el año", min_year, max_year, max_year - 1 if max_year >
-                                  min_year else max_year, key="interp_year2")
-                method2 = st.selectbox("Método de interpolación", options=["Kriging Ordinario", "IDW",
-                                                                           "Spline (Thin Plate)"], index=1, key="interp_method2")
+                year2 = st.slider("Seleccione el año", min_year, max_year, max_year - 1 if max_year > min_year else max_year, key="interp_year2")
+                method2 = st.selectbox("Método de interpolación", options=interpolation_methods, index=1, key="interp_method2")
                 variogram_model2 = None
-                if method2 == "Kriging Ordinario":
+                if "Kriging" in method2:
                     variogram_options = ['linear', 'spherical', 'exponential', 'gaussian']
                     variogram_model2 = st.selectbox("Modelo de Variograma para Mapa 2", variogram_options, key="var_model_2")
 
-            fig1, fig_var1, error1 = generate_interpolation_data(year1, method1, variogram_model1, gdf_filtered, df_anual_non_na)
-            fig2, fig_var2, error2 = generate_interpolation_data(year2, method2, variogram_model2, gdf_filtered, df_anual_non_na)
+            # Se llama a la nueva función desde el módulo de interpolación
+            fig1, fig_var1, error1 = create_interpolation_surface(year1, method1, variogram_model1, gdf_filtered, df_anual_non_na)
+            fig2, fig_var2, error2 = create_interpolation_surface(year2, method2, variogram_model2, gdf_filtered, df_anual_non_na)
             
             with map_col1:
                 if fig1:
