@@ -53,7 +53,7 @@ def generate_pdf_report():
     pdf.set_font('Arial', 'B', 16)
     pdf.cell(0, 10, 'Resumen del Análisis de Precipitación', 0, 1, 'L')
     pdf.set_font('Arial', '', 10)
-    pdf.cell(0, 8, f"Generado el: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", 0, 1, 'L')
+    pdf.cell(0, 8, f"Generado el: {datetime.now().strftime('%Y%m%d_%H%M%S')}", 0, 1, 'L')
     pdf.ln(5)
 
     # 2. Resumen de Filtros Activos
@@ -66,9 +66,10 @@ def generate_pdf_report():
     if isinstance(year_range_val[0], int): # Modo normal
         pdf.multi_cell(0, 5, f"- Período: {year_range_val[0]} - {year_range_val[1]}")
     
-    selected_stations = st.session_state.get('station_multiselect', [])
-    pdf.multi_cell(0, 5, f"- Estaciones seleccionadas: {len(selected_stations)}")
-    # (Puedes añadir más filtros aquí si lo deseas)
+    # En lugar de imprimir la lista completa, solo mostramos la cantidad.
+    num_selected_stations = len(st.session_state.get('station_multiselect', []))
+    pdf.multi_cell(0, 5, f"- Número de estaciones seleccionadas: {num_selected_stations}")
+        
     pdf.ln(10)
 
     # 3. Añadir Gráficos (si existen)
