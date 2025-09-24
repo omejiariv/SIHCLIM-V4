@@ -7,6 +7,7 @@ import zipfile
 import tempfile
 import os
 import io
+import rasterio
 import numpy as np
 from modules.config import Config
 from modules.utils import standardize_numeric_column
@@ -266,3 +267,22 @@ def interpolate_rbf_spline(lons, lats, vals, grid_lon, grid_lat, function='thin_
     rbf = Rbf(lons, lats, vals, function=function)
     z = rbf(grid_x, grid_y)
     return z.T
+
+def extract_elevation_from_dem(gdf_stations, uploaded_dem_file):
+    """Extrae la elevación de un DEM para cada estación en el GeoDataFrame."""
+    if uploaded_dem_file is None:
+        return gdf_stations
+
+    try:
+        with rasterio.open(uploaded_dem_file) as dem:
+            coords = [(point.x, point.y) for point in gdf_stations.geometry]
+            
+            # Extraer los valores de elevación
+            elevations = [val[0] for val in dem.sample(coords)]
+            
+            gdf_stations[Config.ELEVATION_COL] = elevations
+            st.success("Elevación extraída del DEM para todas las estaciones.")
+    except Exception as e:
+        st.error(f"Error al procesar el archivo DEM: {e}")
+    
+    return gdf_stations
