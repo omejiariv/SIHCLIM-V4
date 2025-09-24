@@ -3,6 +3,7 @@
 import pandas as pd
 import numpy as np
 from climate_indices import indices
+from climate_indices.compute import Periodicity, Distribution # <-- 1. IMPORTACIÓN CORREGIDA
 from scipy.stats import gamma, norm, loglaplace
 from modules.config import Config
 
@@ -19,12 +20,12 @@ def calculate_spi(series, window):
         return pd.Series(dtype=float)
 
     # --- INICIO DE LA CORRECCIÓN ---
-    # Se usan los objetos enumeradores correctos de la librería
+    # 2. Se usan los objetos enumeradores correctos importados anteriormente
     spi_values = indices.spi(
         values=data,
         scale=window,
-        distribution=indices.Distribution.gamma,
-        periodicity=indices.Periodicity.monthly, # <-- CORREGIDO
+        distribution=Distribution.gamma,
+        periodicity=Periodicity.monthly,
         data_start_year=series.index.min().year,
         calibration_year_initial=series.index.min().year,
         calibration_year_final=series.index.max().year
@@ -97,13 +98,13 @@ def calculate_spei(precip_series, et_series, scale):
         return pd.Series(dtype=float)
 
     # --- INICIO DE LA CORRECCIÓN ---
-    # Se usan los objetos enumeradores correctos de la librería
+    # 2. Se usan los objetos enumeradores correctos importados anteriormente
     spei_values = indices.spei(
         precips_mm=df['precip'].to_numpy(),
         pet_mm=df['et'].to_numpy(),
         scale=scale,
-        distribution=indices.Distribution.log_logistic, # <-- CORREGIDO
-        periodicity=indices.Periodicity.monthly,      # <-- CORREGIDO
+        distribution=Distribution.log_logistic,
+        periodicity=Periodicity.monthly,
         data_start_year=df.index.min().year,
         calibration_year_initial=df.index.min().year,
         calibration_year_final=df.index.max().year
