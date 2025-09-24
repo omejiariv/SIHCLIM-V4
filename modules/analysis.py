@@ -2,7 +2,7 @@
 
 import pandas as pd
 import numpy as np
-from scipy.stats import gamma, norm, loglaplace
+from scipy.stats import gamma, norm
 from modules.config import Config
 
 # --- Funciones de Análisis ---
@@ -10,13 +10,12 @@ from modules.config import Config
 def calculate_spi(series, window):
     """
     Calcula el Índice Estandarizado de Precipitación (SPI) para una serie de tiempo
-    usando una implementación directa con SciPy. Es más robusto que usar librerías externas.
+    usando una implementación directa con SciPy.
     """
     # 1. Calcula la suma móvil de la precipitación
     rolling_sum = series.sort_index().rolling(window, min_periods=window).sum()
     
     # 2. Ajusta una distribución Gamma a los datos de la suma móvil
-    # Se usa .dropna() para evitar errores con valores nulos
     params = gamma.fit(rolling_sum.dropna(), floc=0)
     shape, loc, scale = params
     
@@ -26,7 +25,7 @@ def calculate_spi(series, window):
     # 4. Transforma la probabilidad acumulada a una distribución normal estándar (Z-score)
     spi = norm.ppf(cdf)
     
-    # 5. Manejo de valores infinitos que pueden surgir de norm.ppf(0) o norm.ppf(1)
+    # 5. Manejo de valores infinitos
     spi = np.where(np.isinf(spi), np.nan, spi)
     
     return pd.Series(spi, index=rolling_sum.index)
@@ -79,37 +78,3 @@ def calculate_percentiles_and_extremes(df_long, station_name, p_lower=10, p_uppe
     df_station_extremes.loc[is_wet, 'event_type'] = f'Húmedo Extremo (> P{p_upper}%)'
 
     return df_station_extremes.dropna(subset=[Config.PRECIPITATION_COL]), df_thresholds
-
-
-def calculate_spei(precip_series, et_series, scale):
-    """
-    Calcula el SPEI usando una implementación directa con SciPy.
-    """
-    scale = int(scale)
-    
-    df = pd.DataFrame({'precip': precip_series, 'et': et_series})
-    df = df.sort_index().asfreq('MS')
-    df.dropna(inplace=True)
-    
-    if len(df) < scale * 2:
-        return pd.Series(dtype=float)
-
-    # 1. Calcular el balance hídrico (Precipitación - Evapotranspiración)
-    water_balance = df['precip'] - df['et']
-    
-    # 2. Acumular el balance hídrico en la escala de tiempo deseada
-    rolling_balance = water_balance.rolling(window=scale, min_periods=scale).sum()
-
-    # 3. Ajustar una distribución Log-Laplace (equivalente a Log-Logística)
-    params = loglaplace.fit(rolling_balance.dropna())
-    
-    # 4. Calcular la probabilidad acumulada (CDF)
-    cdf = loglaplace.cdf(rolling_balance, *params)
-    
-    # 5. Transformar a Z-score de la distribución normal
-    spei = norm.ppf(cdf)
-    
-    # 6. Manejar valores infinitos
-    spei = np.where(np.isinf(spei), np.nan, spei)
-    
-    return pd.Series(spei, index=rolling_balance.index)
