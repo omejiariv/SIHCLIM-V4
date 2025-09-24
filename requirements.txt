@@ -23,3 +23,5 @@ gstools
 rasterio
 fpdf2
 climate-indices
+Fiona==1.9.6
+pyproj==3.6.1
