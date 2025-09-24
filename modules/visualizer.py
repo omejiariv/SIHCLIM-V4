@@ -1,4 +1,4 @@
-# --- INICIO DEL ARCHIVO COMPLETO visualizer.py ---
+# modules/visualizer.py
 
 import streamlit as st
 import pandas as pd
@@ -16,36 +16,32 @@ import base64
 import branca.colormap as cm
 import matplotlib.pyplot as plt
 import matplotlib.cm as mpl_cm
-from pykrige.ok import OrdinaryKriging
 from scipy import stats
 from scipy.interpolate import Rbf
-from modules.interpolation import create_interpolation_surface
 import pymannkendall as mk
 from prophet.plot import plot_plotly
 import io
-import gstools as gs
 
-# --- Importaciones de Módulos Propios (Refactorizados) ---
+# --- Importaciones de Módulos Propios ---
 from modules.config import Config
 from modules.utils import add_folium_download_button
-from modules.data_processor import interpolate_idw
-from modules.analysis import calculate_spi, calculate_spei, calculate_monthly_anomalies, calculate_percentiles_and_extremes
+from modules.interpolation import create_interpolation_surface
+from modules.analysis import calculate_spi, calculate_monthly_anomalies, calculate_percentiles_and_extremes
 from modules.forecasting import (
     generate_sarima_forecast, generate_prophet_forecast,
     get_decomposition_results, create_acf_chart, create_pacf_chart
 )
 
-# --- FUNCIÓN AUXILIAR PARA POPUP REUTILIZABLE (CORREGIDA) ---
+# --- FUNCIÓN AUXILIAR PARA POPUP REUTILIZABLE ---
 def generate_station_popup_html(row, df_anual_melted, include_chart=False,
                                 df_monthly_filtered=None):
     """
-    Genera el contenido para el popup de una estación de forma robusta y a prueba de fallos.
+    Genera el contenido para el popup de una estación de forma robusta.
     """
     full_html = ""
     station_name = row.get(Config.STATION_NAME_COL, 'N/A')
     
     try:
-        # --- 1. Generar el HTML del texto ---
         year_range_val = st.session_state.get('year_range', (2000, 2020))
         if isinstance(year_range_val, tuple) and len(year_range_val) == 2 and isinstance(year_range_val[0], int):
             year_min, year_max = year_range_val
@@ -72,9 +68,8 @@ def generate_station_popup_html(row, df_anual_melted, include_chart=False,
         <p><b>Promedio Anual:</b> {precip_media_anual:.0f} mm</p>
         <small>(Calculado con <b>{valid_years}</b> de <b>{total_years_in_period}</b> años del período)</small>
         """
-        full_html = text_html # Por defecto, el popup solo tendrá texto
+        full_html = text_html
 
-        # --- 2. Intentar generar el HTML del gráfico ---
         chart_html = ""
         if include_chart and df_monthly_filtered is not None:
             df_station_monthly_avg = df_monthly_filtered[df_monthly_filtered[Config.STATION_NAME_COL] == station_name]
@@ -86,14 +81,11 @@ def generate_station_popup_html(row, df_anual_melted, include_chart=False,
                                       height=250, width=350, margin=dict(t=40, b=20, l=20, r=20))
                     chart_html = fig.to_html(full_html=False, include_plotlyjs='cdn')
 
-        # --- 3. Combinar ambos si el gráfico se generó con éxito ---
         if chart_html:
             sanitized_chart_html = chart_html.replace('"', '&quot;')
             full_html = text_html + "<hr>" + f'<iframe srcdoc="{sanitized_chart_html}" width="370" height="270" frameborder="0"></iframe>'
-
+        
     except Exception as e:
-        # Si CUALQUIER COSA falla, nos aseguramos de que el popup al menos tenga el texto básico
-        # y mostramos una advertencia en la app para depuración.
         st.warning(f"No se pudo generar el contenido completo del popup para '{station_name}'. Razón: {e}")
         if 'text_html' in locals():
             full_html = text_html
@@ -105,6 +97,7 @@ def generate_station_popup_html(row, df_anual_melted, include_chart=False,
 # --- Funciones Auxiliares de Gráficos y Mapas ---
 
 def create_enso_chart(enso_data):
+    # ... (código sin cambios)
     if enso_data.empty or Config.ENSO_ONI_COL not in enso_data.columns:
         return go.Figure()
     data = enso_data.copy().sort_values(Config.DATE_COL)
@@ -144,6 +137,7 @@ def create_enso_chart(enso_data):
     return fig
 
 def create_anomaly_chart(df_plot):
+    # ... (código sin cambios)
     if df_plot.empty:
         return go.Figure()
     df_plot['color'] = np.where(df_plot['anomalia'] < 0, 'red', 'blue')
@@ -177,6 +171,7 @@ def create_anomaly_chart(df_plot):
     return fig
 
 def get_map_options():
+    # ... (código sin cambios)
     return {
         "CartoDB Positron (Predeterminado)": {"tiles": "cartodbpositron", "attr": '&copy; <a href="https://carto.com/attributions">CartoDB</a>', "overlay": False},
         "OpenStreetMap": {"tiles": "OpenStreetMap", "attr": '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors', "overlay": False},
@@ -188,6 +183,7 @@ def get_map_options():
     }
 
 def display_map_controls(container_object, key_prefix):
+    # ... (código sin cambios)
     map_options = get_map_options()
     base_maps = {k: v for k, v in map_options.items() if not v.get("overlay")}
     overlays = {k: v for k, v in map_options.items() if v.get("overlay")}
@@ -199,17 +195,18 @@ def display_map_controls(container_object, key_prefix):
     return base_maps[selected_base_map_name], [overlays[k] for k in selected_overlays]
 
 def create_folium_map(location, zoom, base_map_config, overlays_config, fit_bounds_data=None):
+    # ... (código sin cambios)
     m = folium.Map(location=location, zoom_start=zoom, tiles=base_map_config.get("tiles",
                                                                                  "OpenStreetMap"), attr=base_map_config.get("attr", None))
-
-    # --- LÓGICA SIMPLIFICADA ---
-    # La lógica para un solo punto se elimina. Solo se ajustan los límites si hay VARIOS puntos.
     if fit_bounds_data is not None and not fit_bounds_data.empty:
         if len(fit_bounds_data) > 1:
             bounds = fit_bounds_data.total_bounds
             if np.all(np.isfinite(bounds)):
                 m.fit_bounds([[bounds[1], bounds[0]], [bounds[3], bounds[2]]])
-            
+        elif len(fit_bounds_data) == 1:
+            point = fit_bounds_data.iloc[0].geometry
+            m.location = [point.y, point.x]
+            m.zoom_start = 12
     for layer_config in overlays_config:
         WmsTileLayer(url=layer_config["url"], layers=layer_config["layers"], fmt='image/png',
                      transparent=layer_config.get("transparent", False), overlay=True, control=True,
