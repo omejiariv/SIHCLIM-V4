@@ -6,7 +6,6 @@ altair
 folium
 plotly
 geopandas
-pykrige
 scipy
 prophet
 streamlit-folium
