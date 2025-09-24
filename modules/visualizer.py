@@ -437,6 +437,7 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                     elif "Menor a Mayor" in sort_order: df_summary = df_summary.sort_values(Config.PRECIPITATION_COL, ascending=True)
                     else: df_summary = df_summary.sort_values(Config.STATION_NAME_COL, ascending=True)
                     fig_avg = px.bar(df_summary, x=Config.STATION_NAME_COL,
+                    st.session_state['report_fig_anual_avg'] = fig_avg                
                                      y=Config.PRECIPITATION_COL,
                                      title=f'Promedio de Precipitación Anual por Estación ({year_min} - {year_max})',
                                      labels={Config.STATION_NAME_COL: 'Estación', Config.PRECIPITATION_COL: 'Precipitación Media Anual (mm)'},
@@ -1320,6 +1321,7 @@ def display_stats_tab(df_long, df_anual_melted, df_monthly_filtered, stations_fo
                     "Promedio Mensual (mm)": group[Config.PRECIPITATION_COL].mean()
                 })
             summary_df = pd.DataFrame(summary_data)
+            st.session_state['report_df_stats_summary'] = summary_df
             st.dataframe(summary_df.round(0), use_container_width=True)
         else:
             st.info("No hay datos para mostrar el resumen mensual.")
