@@ -1,80 +1,111 @@
-# modules/analysis.py
+# modules/config.py
 
+import streamlit as st
 import pandas as pd
-import numpy as np
-from scipy.stats import gamma, norm
-from modules.config import Config
+import os
 
-# --- Funciones de Análisis ---
+# Define la ruta base del proyecto de forma robusta
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-def calculate_spi(series, window):
-    """
-    Calcula el Índice Estandarizado de Precipitación (SPI) para una serie de tiempo
-    usando una implementación directa con SciPy.
-    """
-    # 1. Calcula la suma móvil de la precipitación
-    rolling_sum = series.sort_index().rolling(window, min_periods=window).sum()
+class Config:
+    # --- Nombres de Columnas de Datos ---
+    STATION_NAME_COL = 'nom_est'
+    PRECIPITATION_COL = 'precipitation'
+    LATITUDE_COL = 'latitud_geo'
+    LONGITUDE_COL = 'longitud_geo'
+    YEAR_COL = 'año'
+    MONTH_COL = 'mes'
+    DATE_COL = 'fecha_mes_año'
+    ENSO_ONI_COL = 'anomalia_oni'
+    ORIGIN_COL = 'origen'
+    ALTITUDE_COL = 'alt_est'
+    MUNICIPALITY_COL = 'municipio'
+    REGION_COL = 'depto_region'
+    PERCENTAGE_COL = 'porc_datos'
+    CELL_COL = 'celda_xy'
+    ET_COL = 'et_mmy'
     
-    # 2. Ajusta una distribución Gamma a los datos de la suma móvil
-    params = gamma.fit(rolling_sum.dropna(), floc=0)
-    shape, loc, scale = params
-    
-    # 3. Calcula la probabilidad acumulada (CDF) con la distribución Gamma
-    cdf = gamma.cdf(rolling_sum, shape, loc=loc, scale=scale)
-    
-    # 4. Transforma la probabilidad acumulada a una distribución normal estándar (Z-score)
-    spi = norm.ppf(cdf)
-    
-    # 5. Manejo de valores infinitos
-    spi = np.where(np.isinf(spi), np.nan, spi)
-    
-    return pd.Series(spi, index=rolling_sum.index)
+    # --- Índices climáticos ---
+    SOI_COL = 'soi'
+    IOD_COL = 'iod'
 
+    # --- Rutas de Archivos ---
+    LOGO_PATH = os.path.join(BASE_DIR, "data", "CuencaVerde_Logo.jpg")
+    LOGO_DROP_PATH = os.path.join(BASE_DIR, "data", "CuencaVerde_Logo.jpg")
+    GIF_PATH = os.path.join(BASE_DIR, "data", "PPAM.gif")
 
-def calculate_monthly_anomalies(df_monthly_filtered, df_long):
+    # --- Mensajes de la UI ---
+    APP_TITLE = "Sistema de información de las lluvias y el Clima en el norte de la región Andina"
+    WELCOME_TEXT = """
+    <p style="text-align: center; font-style: italic; font-size: 1.1em;">
+    "El futuro, también depende del pasado y de nuestra capacidad presente para anticiparlo". — omr.
+    </p>
+    <hr>
+    <p>
+    Esta plataforma interactiva está diseñada para la visualización y análisis de datos históricos de
+    precipitación y su relación con el fenómeno ENSO en el norte de la región Andina.
+    </p>
+
+    <h4>¿Cómo empezar?</h4>
+    <ol>
+        <li>
+            <b>Cargue sus archivos:</b> Si es la primera vez que usa la aplicación, el panel de la izquierda le
+            solicitará cargar los archivos de estaciones, precipitación y el shapefile de municipios.
+            La aplicación recordará estos archivos en su sesión.
+        </li>
+        <li>
+            <b>Filtre los datos:</b> Una vez cargados los datos, utilice el <b>Panel de Control</b> en la barra
+            lateral para filtrar las estaciones por ubicación (región, municipio), altitud,
+            porcentaje de datos disponibles, y para seleccionar el período de análisis (años y meses).
+        </li>
+        <li>
+            <b>Explore las pestañas:</b> Cada pestaña ofrece una perspectiva diferente de los datos.
+            Navegue a través de ellas para descubrir:
+            <ul>
+                <li><b>Distribución Espacial:</b> Mapas interactivos de las estaciones.</li>
+                <li><b>Gráficos:</b> Series de tiempo anuales, mensuales, comparaciones y distribuciones.</li>
+                <li><b>Mapas Avanzados:</b> Animaciones y mapas de interpolación.</li>
+                <li><b>Análisis de Anomalías:</b> Desviaciones de la precipitación respecto a la media histórica.</li>
+                <li><b>Tendencias y Pronósticos:</b> Análisis de tendencias a largo plazo y modelos de pronóstico.</li>
+            </ul>
+            <p>
+            Utilice el botón <b>🔄 Limpiar Filtros</b> en el panel lateral para reiniciar su selección en cualquier
+            momento.
+            </p>
+        </li>
+    </ol>
     """
-    Calcula la anomalía de la precipitación mensual respecto a la climatología
-    histórica del DataFrame base (df_long).
-    """
-    df_climatology = df_long[
-        df_long[Config.STATION_NAME_COL].isin(df_monthly_filtered[Config.STATION_NAME_COL].unique())
-    ].groupby([Config.STATION_NAME_COL, Config.MONTH_COL])[Config.PRECIPITATION_COL].mean() \
-     .reset_index().rename(columns={Config.PRECIPITATION_COL: 'precip_promedio_mes'})
 
-    df_anomalias = pd.merge(
-        df_monthly_filtered,
-        df_climatology,
-        on=[Config.STATION_NAME_COL, Config.MONTH_COL],
-        how='left'
-    )
-    df_anomalias['anomalia'] = df_anomalias[Config.PRECIPITATION_COL] - df_anomalias['precip_promedio_mes']
-    return df_anomalias.copy()
-
-
-def calculate_percentiles_and_extremes(df_long, station_name, p_lower=10, p_upper=90):
-    """
-    Calcula los percentiles mensuales y clasifica los meses de la serie filtrada
-    como secos o húmedos extremos para una estación específica.
-    """
-    df_station_full = df_long[df_long[Config.STATION_NAME_COL] == station_name].copy()
-
-    df_thresholds = df_station_full.groupby(Config.MONTH_COL)[Config.PRECIPITATION_COL].agg(
-        p_lower=lambda x: np.nanpercentile(x.dropna(), p_lower),
-        p_upper=lambda x: np.nanpercentile(x.dropna(), p_upper),
-        mean_monthly='mean'
-    ).reset_index()
-
-    df_station_extremes = pd.merge(
-        df_station_full,
-        df_thresholds,
-        on=Config.MONTH_COL,
-        how='left'
-    )
-
-    df_station_extremes['event_type'] = 'Normal'
-    is_dry = (df_station_extremes[Config.PRECIPITATION_COL] < df_station_extremes['p_lower'])
-    df_station_extremes.loc[is_dry, 'event_type'] = f'Sequía Extrema (< P{p_lower}%)'
-    is_wet = (df_station_extremes[Config.PRECIPITATION_COL] > df_station_extremes['p_upper'])
-    df_station_extremes.loc[is_wet, 'event_type'] = f'Húmedo Extremo (> P{p_upper}%)'
-
-    return df_station_extremes.dropna(subset=[Config.PRECIPITATION_COL]), df_thresholds
+    @staticmethod
+    def initialize_session_state():
+        """Inicializa todas las variables necesarias en el estado de la sesión de Streamlit."""
+        state_defaults = {
+            'data_loaded': False,
+            'analysis_mode': "Usar datos originales",
+            'select_all_checkbox': True,
+            'filtered_station_options': [],
+            'station_multiselect': [],
+            'df_monthly_processed': pd.DataFrame(),
+            'gdf_stations': None,
+            'df_precip_anual': None,
+            'gdf_municipios': None,
+            'df_long': None,
+            'df_enso': None,
+            'min_data_perc_slider': 0,
+            'altitude_multiselect': [],
+            'regions_multiselect': [],
+            'municipios_multiselect': [],
+            'celdas_multiselect': [],
+            'exclude_na': False,
+            'exclude_zeros': False,
+            'uploaded_forecast': None,
+            'sarima_forecast': None,
+            'prophet_forecast': None,
+            'year_range': (1970, 2021),
+            'meses_nombres': ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
+            'meses_numeros': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+            'gif_reload_key': 0
+        }
+        for key, value in state_defaults.items():
+            if key not in st.session_state:
+                st.session_state[key] = value
