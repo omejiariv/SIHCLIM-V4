@@ -1,38 +1,26 @@
 # app.py
 # -*- coding: utf-8 -*-
 
-# --- Importaciones Esenciales ---
 import streamlit as st
 import pandas as pd
 import numpy as np
 import warnings
 import os
-from datetime import datetime
 
-# --- Importaciones de tus Módulos ---
+# --- Importaciones de Módulos ---
 from modules.config import Config
-from modules.data_processor import load_and_process_all_data, complete_series, extract_elevation_from_dem
-from modules.utils import generate_pdf_report # <-- IMPORTACIÓN AÑADIDA
+from modules.data_processor import load_and_process_all_data, complete_series
 from modules.visualizer import (
-    display_welcome_tab,
-    display_spatial_distribution_tab,
-    display_graphs_tab,
-    display_advanced_maps_tab,
-    display_anomalies_tab,
-    display_drought_analysis_tab,
-    display_stats_tab,
-    display_correlation_tab,
-    display_enso_tab,
-    display_trends_and_forecast_tab,
-    display_downloads_tab,
-    display_station_table_tab
+    display_welcome_tab, display_spatial_distribution_tab, display_graphs_tab,
+    display_advanced_maps_tab, display_anomalies_tab, display_drought_analysis_tab,
+    display_stats_tab, display_correlation_tab, display_enso_tab,
+    display_trends_and_forecast_tab, display_downloads_tab, display_station_table_tab
 )
 
 # Desactivar Warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-# --- Función Principal de Streamlit ---
 def main():
     st.set_page_config(layout="wide", page_title=Config.APP_TITLE)
 
@@ -46,7 +34,6 @@ def main():
     </style>
     """, unsafe_allow_html=True)
 
-    # Inicialización de la sesión
     Config.initialize_session_state()
 
     title_col1, title_col2 = st.columns([0.07, 0.93])
@@ -59,25 +46,6 @@ def main():
 
     st.sidebar.header("Panel de Control")
 
-    with st.sidebar.expander("Generación de Reportes"):
-        if st.button("Generar Reporte PDF"):
-            if 'report_fig_anual_avg' in st.session_state and 'report_df_stats_summary' in st.session_state:
-                with st.spinner("Generando reporte PDF..."):
-                    pdf_bytes = generate_pdf_report()
-                    st.session_state['pdf_report_bytes'] = pdf_bytes
-            else:
-                st.warning("Por favor, navegue primero a las pestañas 'Gráficos' y 'Estadísticas' para generar el contenido del reporte.")
-
-        if 'pdf_report_bytes' in st.session_state:
-            st.download_button(
-                label="📥 Descargar Reporte PDF",
-                data=st.session_state['pdf_report_bytes'],
-                file_name=f"reporte_sihclim_{datetime.now().strftime('%Y%m%d')}.pdf",
-                mime="application/pdf"
-            )
-
-    # --- Lógica de Carga y Preprocesamiento ---
-    
     with st.sidebar.expander("**Cargar Archivos**", expanded=not st.session_state.get('data_loaded', False)):
         uploaded_file_mapa = st.file_uploader("1. Cargar archivo de estaciones (CSV)", type="csv")
         uploaded_file_precip = st.file_uploader("2. Cargar archivo de precipitación (CSV)", type="csv")
@@ -106,26 +74,6 @@ def main():
             
     if st.session_state.get('data_loaded', False) and st.session_state.get('df_long') is not None:
         
-        with st.sidebar.expander("Opciones de Modelo Digital de Elevación (DEM)"):
-            dem_option = st.radio(
-                "Seleccionar fuente del DEM para Kriging con Deriva Externa:",
-                ("No usar DEM", "Subir DEM propio"),
-                key="dem_option",
-                help="El DEM mejora la interpolación al considerar la elevación como una variable."
-            )
-            uploaded_dem_file = None
-            if dem_option == "Subir DEM propio":
-                uploaded_dem_file = st.file_uploader(
-                    "Cargar archivo DEM en formato GeoTIFF (.tif)",
-                    type=["tif", "tiff"]
-                )
-        
-        if uploaded_dem_file:
-            st.session_state.gdf_stations = extract_elevation_from_dem(
-                st.session_state.gdf_stations,
-                uploaded_dem_file
-            )
-
         def apply_filters_to_stations(df, min_perc, altitudes, regions, municipios, celdas):
             stations_filtered = df.copy()
             if Config.PERCENTAGE_COL in stations_filtered.columns:
