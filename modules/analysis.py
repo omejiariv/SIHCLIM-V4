@@ -2,6 +2,7 @@
 
 import pandas as pd
 import numpy as np
+from climate_indices import indices
 from scipy.stats import gamma, norm, loglaplace
 from modules.config import Config
 
@@ -9,27 +10,28 @@ from modules.config import Config
 
 def calculate_spi(series, window):
     """
-    Calcula el Índice Estandarizado de Precipitación (SPI) para una serie de tiempo
-    usando una implementación directa con SciPy. Es más robusto que usar librerías externas.
+    Calcula el Índice Estandarizado de Precipitación (SPI) para una serie de tiempo.
     """
-    # 1. Calcula la suma móvil de la precipitación
-    rolling_sum = series.sort_index().rolling(window, min_periods=window).sum()
+    series = series.sort_index().asfreq('MS')
+    data = series.dropna().to_numpy()
     
-    # 2. Ajusta una distribución Gamma a los datos de la suma móvil
-    # Se usa .dropna() para evitar errores con valores nulos
-    params = gamma.fit(rolling_sum.dropna(), floc=0)
-    shape, loc, scale = params
+    if len(data) < window * 2: # Validación para tener suficientes datos
+        return pd.Series(dtype=float)
+
+    # --- INICIO DE LA CORRECCIÓN ---
+    # Se usan strings para los argumentos 'distribution' y 'periodicity'
+    spi_values = indices.spi(
+        values=data,
+        scale=window,
+        distribution='gamma',
+        periodicity='monthly',
+        data_start_year=series.index.min().year,
+        calibration_year_initial=series.index.min().year,
+        calibration_year_final=series.index.max().year
+    )
+    # --- FIN DE LA CORRECCIÓN ---
     
-    # 3. Calcula la probabilidad acumulada (CDF) con la distribución Gamma
-    cdf = gamma.cdf(rolling_sum, shape, loc=loc, scale=scale)
-    
-    # 4. Transforma la probabilidad acumulada a una distribución normal estándar (Z-score)
-    spi = norm.ppf(cdf)
-    
-    # 5. Manejo de valores infinitos que pueden surgir de norm.ppf(0) o norm.ppf(1)
-    spi = np.where(np.isinf(spi), np.nan, spi)
-    
-    return pd.Series(spi, index=rolling_sum.index)
+    return pd.Series(spi_values, index=series.index[-len(spi_values):])
 
 
 def calculate_monthly_anomalies(df_monthly_filtered, df_long):
@@ -83,7 +85,7 @@ def calculate_percentiles_and_extremes(df_long, station_name, p_lower=10, p_uppe
 
 def calculate_spei(precip_series, et_series, scale):
     """
-    Calcula el SPEI usando una implementación directa con SciPy.
+    Calcula el SPEI usando una serie de evapotranspiración pre-calculada.
     """
     scale = int(scale)
     
@@ -91,25 +93,21 @@ def calculate_spei(precip_series, et_series, scale):
     df = df.sort_index().asfreq('MS')
     df.dropna(inplace=True)
     
-    if len(df) < scale * 2:
+    if len(df) < scale * 2: # Validación para tener suficientes datos
         return pd.Series(dtype=float)
 
-    # 1. Calcular el balance hídrico (Precipitación - Evapotranspiración)
-    water_balance = df['precip'] - df['et']
+    # --- INICIO DE LA CORRECCIÓN ---
+    # Se usan strings para los argumentos 'distribution' y 'periodicity'
+    spei_values = indices.spei(
+        precips_mm=df['precip'].to_numpy(),
+        pet_mm=df['et'].to_numpy(),
+        scale=scale,
+        distribution='log-logistic',
+        periodicity='monthly',
+        data_start_year=df.index.min().year,
+        calibration_year_initial=df.index.min().year,
+        calibration_year_final=df.index.max().year
+    )
+    # --- FIN DE LA CORRECCIÓN ---
     
-    # 2. Acumular el balance hídrico en la escala de tiempo deseada
-    rolling_balance = water_balance.rolling(window=scale, min_periods=scale).sum()
-
-    # 3. Ajustar una distribución Log-Laplace (equivalente a Log-Logística)
-    params = loglaplace.fit(rolling_balance.dropna())
-    
-    # 4. Calcular la probabilidad acumulada (CDF)
-    cdf = loglaplace.cdf(rolling_balance, *params)
-    
-    # 5. Transformar a Z-score de la distribución normal
-    spei = norm.ppf(cdf)
-    
-    # 6. Manejar valores infinitos
-    spei = np.where(np.isinf(spei), np.nan, spei)
-    
-    return pd.Series(spei, index=rolling_balance.index)
+    return pd.Series(spei_values, index=df.index[-len(spei_values):])
