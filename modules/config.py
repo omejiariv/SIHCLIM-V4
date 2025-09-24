@@ -24,7 +24,8 @@ class Config:
     PERCENTAGE_COL = 'porc_datos'
     CELL_COL = 'celda_xy'
     ET_COL = 'et_mmy'
-    
+    ELEVATION_COL = 'elevation_dem' # <-- LÍNEA AÑADIDA
+
     # --- Índices climáticos ---
     SOI_COL = 'soi'
     IOD_COL = 'iod'
