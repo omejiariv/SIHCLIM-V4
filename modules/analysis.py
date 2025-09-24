@@ -2,7 +2,8 @@
 
 import pandas as pd
 import numpy as np
-from climate_indices import indices
+from climate_indices import indices, compute # <-- 1. IMPORTACIÓN CORREGIDA
+
 from scipy.stats import gamma, norm, loglaplace
 from modules.config import Config
 
@@ -18,18 +19,16 @@ def calculate_spi(series, window):
     if len(data) < window * 2: # Validación para tener suficientes datos
         return pd.Series(dtype=float)
 
-    # --- INICIO DE LA CORRECCIÓN ---
-    # Se usan los objetos enumeradores correctos, accedidos a través del módulo 'indices'
+    # --- 2. Se usan los objetos enumeradores correctos ---
     spi_values = indices.spi(
         values=data,
         scale=window,
-        distribution=indices.Distribution.gamma,
-        periodicity=indices.Periodicity.monthly,
+        distribution=compute.Distribution.gamma,
+        periodicity=compute.Periodicity.monthly,
         data_start_year=series.index.min().year,
         calibration_year_initial=series.index.min().year,
         calibration_year_final=series.index.max().year
     )
-    # --- FIN DE LA CORRECCIÓN ---
     
     return pd.Series(spi_values, index=series.index[-len(spi_values):])
 
@@ -96,18 +95,16 @@ def calculate_spei(precip_series, et_series, scale):
     if len(df) < scale * 2:
         return pd.Series(dtype=float)
 
-    # --- INICIO DE LA CORRECCIÓN ---
-    # Se usan los objetos enumeradores correctos, accedidos a través del módulo 'indices'
+    # --- 2. Se usan los objetos enumeradores correctos ---
     spei_values = indices.spei(
         precips_mm=df['precip'].to_numpy(),
         pet_mm=df['et'].to_numpy(),
         scale=scale,
-        distribution=indices.Distribution.log_logistic,
-        periodicity=indices.Periodicity.monthly,
+        distribution=compute.Distribution.log_logistic,
+        periodicity=compute.Periodicity.monthly,
         data_start_year=df.index.min().year,
         calibration_year_initial=df.index.min().year,
         calibration_year_final=df.index.max().year
     )
-    # --- FIN DE LA CORRECCIÓN ---
     
     return pd.Series(spei_values, index=df.index[-len(spei_values):])
