@@ -97,7 +97,20 @@ def main():
     # --------------------------------------------------------------------------
     # LÓGICA PRINCIPAL: Solo se ejecuta si los datos ya han sido cargados
     # --------------------------------------------------------------------------
-    if st.session_state.get('data_loaded', False) and st.session_state.get('df_long') is not None:
+    if st.session_state.get('data_loaded', False):
+        with st.sidebar.expander("Opciones de Modelo Digital de Elevación (DEM)", expanded=True):
+            dem_option = st.radio(
+                "Seleccionar fuente del DEM para Kriging con Deriva Externa:",
+                ("No usar DEM", "Subir DEM propio"),
+                key="dem_option",
+                help="El DEM mejora la interpolación al considerar la elevación como una variable."
+            )
+            uploaded_dem_file = None
+            if dem_option == "Subir DEM propio":
+                uploaded_dem_file = st.file_uploader(
+                    "Cargar archivo DEM en formato GeoTIFF (.tif)",
+                    type=["tif", "tiff"]
+                )
 
         # --- FUNCIÓN DE FILTRADO (Se mantiene aquí por acoplamiento con Streamlit Session State)
         def apply_filters_to_stations(df, min_perc, altitudes, regions, municipios, celdas):
