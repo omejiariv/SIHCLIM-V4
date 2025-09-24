@@ -1,5 +1,3 @@
-# packages.txt
-
 build-essential
 libgdal-dev
 libproj-dev
