@@ -32,6 +32,24 @@ from modules.forecasting import (
     get_decomposition_results, create_acf_chart, create_pacf_chart
 )
 
+def get_map_options():
+    return {
+        "CartoDB Positron (Predeterminado)": {"tiles": "cartodbpositron", "attr": '&copy; <a href="https://carto.com/attributions">CartoDB</a>', "overlay": False},
+        "OpenStreetMap": {"tiles": "OpenStreetMap", "attr": '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors', "overlay": False},
+        "Topografía (OpenTopoMap)": {"tiles": "https://{s}.tile.opentomap.org/{z}/{x}/{y}.png", "attr": 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">Open Topo Map</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)', "overlay": False},
+    }
+
+def display_map_controls(container_object, key_prefix):
+    map_options = get_map_options()
+    base_maps = {k: v for k, v in map_options.items() if not v.get("overlay")}
+    selected_base_map_name = container_object.selectbox("Seleccionar Mapa Base",
+                                                        list(base_maps.keys()), key=f"{key_prefix}_base_map")
+    
+    # Por ahora deshabilitamos las capas adicionales para simplificar
+    selected_overlays_config = [] 
+    
+    return base_maps[selected_base_map_name], selected_overlays_config
+
 # --- FUNCIÓN AUXILIAR PARA POPUP ---
 def generate_station_popup_html(row, df_anual_melted, include_chart=False,
                                 df_monthly_filtered=None):
