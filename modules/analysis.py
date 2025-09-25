@@ -6,10 +6,6 @@ from scipy.stats import gamma, norm
 from modules.config import Config
 
 def calculate_spi(series, window):
-    """
-    Calcula el Índice Estandarizado de Precipitación (SPI) para una serie de tiempo
-    usando una implementación directa con SciPy.
-    """
     rolling_sum = series.sort_index().rolling(window, min_periods=window).sum()
     params = gamma.fit(rolling_sum.dropna(), floc=0)
     shape, loc, scale = params
@@ -19,10 +15,6 @@ def calculate_spi(series, window):
     return pd.Series(spi, index=rolling_sum.index)
 
 def calculate_monthly_anomalies(df_monthly_filtered, df_long):
-    """
-    Calcula la anomalía de la precipitación mensual respecto a la climatología
-    histórica del DataFrame base (df_long).
-    """
     df_climatology = df_long[
         df_long[Config.STATION_NAME_COL].isin(df_monthly_filtered[Config.STATION_NAME_COL].unique())
     ].groupby([Config.STATION_NAME_COL, Config.MONTH_COL])[Config.PRECIPITATION_COL].mean() \
@@ -38,29 +30,21 @@ def calculate_monthly_anomalies(df_monthly_filtered, df_long):
     return df_anomalias.copy()
 
 def calculate_percentiles_and_extremes(df_long, station_name, p_lower=10, p_upper=90):
-    """
-    Calcula los percentiles mensuales y clasifica los meses de la serie filtrada
-    como secos o húmedos extremos para una estación específica.
-    """
     df_station_full = df_long[df_long[Config.STATION_NAME_COL] == station_name].copy()
-
     df_thresholds = df_station_full.groupby(Config.MONTH_COL)[Config.PRECIPITATION_COL].agg(
         p_lower=lambda x: np.nanpercentile(x.dropna(), p_lower),
         p_upper=lambda x: np.nanpercentile(x.dropna(), p_upper),
         mean_monthly='mean'
     ).reset_index()
-
     df_station_extremes = pd.merge(
         df_station_full,
         df_thresholds,
         on=Config.MONTH_COL,
         how='left'
     )
-
     df_station_extremes['event_type'] = 'Normal'
     is_dry = (df_station_extremes[Config.PRECIPITATION_COL] < df_station_extremes['p_lower'])
     df_station_extremes.loc[is_dry, 'event_type'] = f'Sequía Extrema (< P{p_lower}%)'
     is_wet = (df_station_extremes[Config.PRECIPITATION_COL] > df_station_extremes['p_upper'])
     df_station_extremes.loc[is_wet, 'event_type'] = f'Húmedo Extremo (> P{p_upper}%)'
-
     return df_station_extremes.dropna(subset=[Config.PRECIPITATION_COL]), df_thresholds
