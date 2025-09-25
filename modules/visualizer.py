@@ -94,6 +94,48 @@ def create_enso_chart(enso_data):
     )
     return fig
 
+def create_anomaly_chart(df_plot):
+    if df_plot.empty:
+        return go.Figure()
+
+    df_plot['color'] = np.where(df_plot['anomalia'] < 0, 'red', 'blue')
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=df_plot[Config.DATE_COL], y=df_plot['anomalia'],
+        marker_color=df_plot['color'], name='Anomalía de Precipitación'
+    ))
+
+    if Config.ENSO_ONI_COL in df_plot.columns:
+        df_plot_enso = df_plot.dropna(subset=[Config.ENSO_ONI_COL])
+        
+        # Highlight El Niño periods
+        nino_periods = df_plot_enso[df_plot_enso[Config.ENSO_ONI_COL] >= 0.5]
+        for _, row in nino_periods.iterrows():
+            fig.add_vrect(x0=row[Config.DATE_COL] - pd.DateOffset(days=15),
+                          x1=row[Config.DATE_COL] + pd.DateOffset(days=15),
+                          fillcolor="red", opacity=0.15, layer="below", line_width=0)
+
+        # Highlight La Niña periods
+        nina_periods = df_plot_enso[df_plot_enso[Config.ENSO_ONI_COL] <= -0.5]
+        for _, row in nina_periods.iterrows():
+            fig.add_vrect(x0=row[Config.DATE_COL] - pd.DateOffset(days=15),
+                          x1=row[Config.DATE_COL] + pd.DateOffset(days=15),
+                          fillcolor="blue", opacity=0.15, layer="below", line_width=0)
+
+        # Add hidden traces for legend
+        fig.add_trace(go.Scatter(x=[None], y=[None], mode='markers',
+                                 marker=dict(symbol='square', color='rgba(255, 0, 0, 0.3)'),
+                                 name='Fase El Niño'))
+        fig.add_trace(go.Scatter(x=[None], y=[None], mode='markers',
+                                 marker=dict(symbol='square', color='rgba(0, 0, 255, 0.3)'),
+                                 name='Fase La Niña'))
+
+    fig.update_layout(
+        height=600, title="Anomalías Mensuales de Precipitación y Fases ENSO",
+        yaxis_title="Anomalía de Precipitación (mm)", xaxis_title="Fecha", showlegend=True
+    )
+    return fig
+
 # --- FUNCIÓN AUXILIAR PARA POPUP ---
 def generate_station_popup_html(row, df_anual_melted, include_chart=False,
                                 df_monthly_filtered=None):
