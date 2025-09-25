@@ -329,10 +329,6 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                                      color=Config.PRECIPITATION_COL,
                                      color_continuous_scale=px.colors.sequential.Blues_r)
                     
-                    # --- LÍNEA CORREGIDA Y REUBICADA ---
-                    # Guardamos la figura en el estado de la sesión para el reporte
-                    st.session_state['report_fig_anual_avg'] = fig_avg
-                    
                     fig_avg.update_layout(height=500,
                                           xaxis={'categoryorder': 'total descending' if "Mayor a Menor" in sort_order
                                                  else ('total ascending' if "Menor a Mayor" in sort_order else 'trace')})
