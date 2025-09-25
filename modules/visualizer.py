@@ -1359,7 +1359,6 @@ def display_trends_and_forecast_tab(df_anual_melted, df_monthly_to_process, stat
             st.markdown("""
             El modelo **SARIMA** (Seasonal Auto-Regressive Integrated Moving Average) utiliza datos
             históricos para predecir valores futuros.
-            Ajuste los parámetros para optimizar el pronóstico:
             - **(p, d, q):** Componentes no estacionales (AR, I, MA).
             - **(P, D, Q):** Componentes estacionales (AR, I, MA). $s=12$ (mensual).
             """)
@@ -1507,7 +1506,7 @@ def display_trends_and_forecast_tab(df_anual_melted, df_monthly_to_process, stat
                         legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01)
                     )
                     st.plotly_chart(fig_compare, use_container_width=True)
-
+                    
     with tendencia_individual_tab:
         st.subheader("Tendencia de Precipitación Anual (Regresión Lineal)")
         analysis_type = st.radio("Tipo de Análisis de Tendencia:", ["Promedio de la selección",
