@@ -1,27 +1,21 @@
-# requirements.txt
-
+streamlit
 pandas
 altair
 folium
 plotly
-# geopandas  <-- Mantenemos deshabilitado por ahora para asegurar el despliegue
+geopandas
 scipy
 prophet
+streamlit-folium
 numpy
 branca
 openpyxl
-# rasterstats
+rasterstats
 xarray
 Pillow
-# rioxarray
+rioxarray
 statsmodels
 scikit-learn
 pymannkendall
-# gstools
-# rasterio
-fpdf2
-climate-indices
-
-# Nuevas librerías para Dash
-dash
-dash-bootstrap-components
+gstools
+rasterio
