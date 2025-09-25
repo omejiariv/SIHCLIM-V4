@@ -114,13 +114,11 @@ def create_folium_map(location, zoom, base_map_config, overlays_config, fit_boun
     
 # --- Funciones de Pestañas Principales ---
 
-def display_welcome_tab_dash():
-    """Retorna el layout de la pestaña de bienvenida para Dash."""
-    return html.Div([
-        html.H2("Bienvenido al Sistema de Información de Lluvias y Clima"),
-        # Usamos dcc.Markdown para poder interpretar el HTML
-        dcc.Markdown(Config.WELCOME_TEXT, dangerously_allow_html=True) 
-    ])
+def display_welcome_tab():
+    st.header("Bienvenido al Sistema de Información de Lluvias y Clima")
+    st.markdown(Config.WELCOME_TEXT, unsafe_allow_html=True)
+    if os.path.exists(Config.LOGO_PATH):
+        st.image(Config.LOGO_PATH, width=250, caption="Corporación Cuenca Verde")
 
 def display_spatial_distribution_tab(gdf_filtered, stations_for_analysis, df_anual_melted,
                                      df_monthly_filtered):
@@ -166,12 +164,10 @@ def display_spatial_distribution_tab(gdf_filtered, stations_for_analysis, df_anu
                                                                                       "dist_esp")
             if not gdf_display.empty:
                 st.markdown("---")
-                m1, m2 = st.columns([1, 3])
-                with m1:
-                    if os.path.exists(Config.LOGO_DROP_PATH):
-                        st.image(Config.LOGO_DROP_PATH, width=50)
-                with m2:
-                    st.metric("Estaciones en Vista", len(gdf_display))
+                # Usamos el logo de Config en lugar de LOGO_DROP_PATH para consistencia
+                if os.path.exists(Config.LOGO_PATH):
+                    st.image(Config.LOGO_PATH, width=70)
+                st.metric("Estaciones en Vista", len(gdf_display))
                 st.markdown("---")
 
                 map_centering = st.radio("Opciones de centrado:", ("Automático", "Vistas Predefinidas"),
@@ -196,16 +192,7 @@ def display_spatial_distribution_tab(gdf_filtered, stations_for_analysis, df_anu
 
                 with st.expander("Resumen de Filtros Activos", expanded=True):
                     summary_text = f"**Período:** {year_min} - {year_max}\n\n"
-                    if 'min_data_perc_slider' in st.session_state:
-                        summary_text += f"**% Mínimo de Datos:** {st.session_state.min_data_perc_slider}%\n\n"
-                    if 'altitude_multiselect' in st.session_state and st.session_state.altitude_multiselect:
-                        summary_text += f"**Altitud:** {', '.join(st.session_state.altitude_multiselect)}\n\n"
-                    if 'regions_multiselect' in st.session_state and st.session_state.regions_multiselect:
-                        summary_text += f"**Región:** {', '.join(st.session_state.regions_multiselect)}\n\n"
-                    if 'municipios_multiselect' in st.session_state and st.session_state.municipios_multiselect:
-                        summary_text += f"**Municipio:** {', '.join(st.session_state.municipios_multiselect)}\n\n"
-                    if 'celdas_multiselect' in st.session_state and st.session_state.celdas_multiselect:
-                        summary_text += f"**Celda XY:** {', '.join(st.session_state.celdas_multiselect)}\n\n"
+                    # (Puedes añadir más resúmenes de filtros aquí si lo deseas)
                     st.info(summary_text)
         with map_col:
             if not gdf_display.empty:
