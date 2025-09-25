@@ -23,6 +23,8 @@ from prophet.plot import plot_plotly
 import io
 
 # --- Importaciones de Módulos Propios ---
+from dash import dcc
+from dash import html
 from modules.config import Config
 from modules.utils import add_folium_download_button
 from modules.interpolation import create_interpolation_surface
@@ -215,11 +217,13 @@ def create_folium_map(location, zoom, base_map_config, overlays_config, fit_boun
     
 # --- Funciones de Pestañas Principales ---
 
-def display_welcome_tab():
-    st.header("Bienvenido al Sistema de Información de Lluvias y Clima")
-    st.markdown(Config.WELCOME_TEXT, unsafe_allow_html=True)
-    if os.path.exists(Config.LOGO_PATH):
-        st.image(Config.LOGO_PATH, width=250, caption="Corporación Cuenca Verde")
+def display_welcome_tab_dash():
+    """Retorna el layout de la pestaña de bienvenida para Dash."""
+    return html.Div([
+        html.H2("Bienvenido al Sistema de Información de Lluvias y Clima"),
+        # Usamos dcc.Markdown para poder interpretar el HTML
+        dcc.Markdown(Config.WELCOME_TEXT, dangerously_allow_html=True) 
+    ])
 
 def display_spatial_distribution_tab(gdf_filtered, stations_for_analysis, df_anual_melted,
                                      df_monthly_filtered):
