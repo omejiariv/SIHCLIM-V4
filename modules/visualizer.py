@@ -437,7 +437,7 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                                           xaxis={'categoryorder': 'total descending' if "Mayor a Menor" in sort_order
                                                  else ('total ascending' if "Menor a Mayor" in sort_order else 'trace')})
                     st.plotly_chart(fig_avg, use_container_width=True)
-                else:
+                else: # Gráfico de Cajas
                     df_anual_filtered_for_box = \
                         df_anual_melted[df_anual_melted[Config.STATION_NAME_COL].isin(stations_for_analysis)]
                     fig_box_annual = px.box(df_anual_filtered_for_box, x=Config.STATION_NAME_COL,
@@ -447,7 +447,7 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                                             labels={Config.STATION_NAME_COL: 'Estación',
                                                     Config.PRECIPITATION_COL: 'Precipitación Anual (mm)'})
                     fig_box_annual.update_layout(height=500)
-                    st.plotly_chart(fig_box_annual, use_container_width=True)
+                    st.plotly_chart(fig_box_annual, use_container_width=True, key="box_anual_multianual") # <-- KEY AÑADIDA
             else:
                 st.warning("No hay datos anuales para mostrar el análisis multianual.")
 
@@ -546,7 +546,7 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                                     labels={Config.STATION_NAME_COL: 'Estación', Config.PRECIPITATION_COL:
                                             'Precipitación Anual (mm)'})
             fig_box_annual.update_layout(height=500)
-            st.plotly_chart(fig_box_annual, use_container_width=True)
+            st.plotly_chart(fig_box_annual, use_container_width=True, key="box_anual_comparacion") # <-- KEY AÑADIDA
 
     with sub_tab_distribucion:
         st.subheader("Distribución de la Precipitación")
