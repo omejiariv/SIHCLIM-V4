@@ -45,7 +45,7 @@ def display_map_controls(container_object, key_prefix):
     selected_base_map_name = container_object.selectbox("Seleccionar Mapa Base",
                                                         list(base_maps.keys()), key=f"{key_prefix}_base_map")
     
-    # Por ahora deshabilitamos las capas adicionales para simplificar
+    # Temporarily disable additional layers to simplify
     selected_overlays_config = [] 
     
     return base_maps[selected_base_map_name], selected_overlays_config
