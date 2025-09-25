@@ -50,6 +50,50 @@ def display_map_controls(container_object, key_prefix):
     
     return base_maps[selected_base_map_name], selected_overlays_config
 
+def create_enso_chart(enso_data):
+    if enso_data.empty or Config.ENSO_ONI_COL not in enso_data.columns:
+        return go.Figure()
+
+    data = enso_data.copy().sort_values(Config.DATE_COL)
+    data.dropna(subset=[Config.ENSO_ONI_COL], inplace=True)
+
+    if data.empty:
+        return go.Figure()
+
+    conditions = [data[Config.ENSO_ONI_COL] >= 0.5, data[Config.ENSO_ONI_COL] <= -0.5]
+    phases = ['El Niño', 'La Niña']
+    colors = ['red', 'blue']
+    data['phase'] = np.select(conditions, phases, default='Neutral')
+    data['color'] = np.select(conditions, colors, default='grey')
+
+    y_range = [data[Config.ENSO_ONI_COL].min() - 0.5, data[Config.ENSO_ONI_COL].max() + 0.5]
+
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=data[Config.DATE_COL], y=[y_range[1] - y_range[0]] * len(data),
+        base=y_range[0], marker_color=data['color'], width=30*24*60*60*1000,
+        opacity=0.3, hoverinfo='none', showlegend=False
+    ))
+    legend_map = {'El Niño': 'red', 'La Niña': 'blue', 'Neutral': 'grey'}
+    for phase, color in legend_map.items():
+        fig.add_trace(go.Scatter(
+            x=[None], y=[None], mode='markers',
+            marker=dict(size=15, color=color, symbol='square', opacity=0.5),
+            name=phase, showlegend=True
+        ))
+    fig.add_trace(go.Scatter(
+        x=data[Config.DATE_COL], y=data[Config.ENSO_ONI_COL],
+        mode='lines', name='Anomalía ONI', line=dict(color='black', width=2), showlegend=True
+    ))
+    fig.add_hline(y=0.5, line_dash="dash", line_color="red")
+    fig.add_hline(y=-0.5, line_dash="dash", line_color="blue")
+    fig.update_layout(
+        height=600, title="Fases del Fenómeno ENSO y Anomalía ONI",
+        yaxis_title="Anomalía ONI (°C)", xaxis_title="Fecha", showlegend=True,
+        legend_title_text='Fase', yaxis_range=y_range
+    )
+    return fig
+
 # --- FUNCIÓN AUXILIAR PARA POPUP ---
 def generate_station_popup_html(row, df_anual_melted, include_chart=False,
                                 df_monthly_filtered=None):
