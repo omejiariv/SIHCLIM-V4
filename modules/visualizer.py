@@ -546,8 +546,8 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                                     labels={Config.STATION_NAME_COL: 'Estación', Config.PRECIPITATION_COL:
                                             'Precipitación Anual (mm)'})
             fig_box_annual.update_layout(height=500)
-            st.plotly_chart(fig_box_annual, use_container_width=True, key="box_anual_comparacion") # <-- KEY AÑADIDA
-
+            st.plotly_chart(fig_box_annual, use_container_width=True, key="box_anual_comparacion")
+            
     with sub_tab_distribucion:
         st.subheader("Distribución de la Precipitación")
         distribucion_tipo = st.radio("Seleccionar tipo de distribución:", ("Anual", "Mensual"),
