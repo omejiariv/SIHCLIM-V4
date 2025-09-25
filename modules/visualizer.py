@@ -785,15 +785,59 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
 
     with race_tab:
         st.subheader("Ranking Anual de Precipitación por Estación")
-        # ... (código existente de esta pestaña)
+        df_anual_valid = df_anual_melted.dropna(subset=[Config.PRECIPITATION_COL])
+        
+        if not df_anual_valid.empty:
+            fig_racing = px.bar(
+                df_anual_valid, x=Config.PRECIPITATION_COL, y=Config.STATION_NAME_COL,
+                animation_frame=Config.YEAR_COL, orientation='h',
+                labels={Config.PRECIPITATION_COL: 'Precipitación Anual (mm)', Config.STATION_NAME_COL: 'Estación'},
+                title="Evolución de Precipitación Anual por Estación"
+            )
+            fig_racing.update_layout(
+                height=max(600, len(stations_for_analysis) * 35),
+                yaxis=dict(categoryorder='total ascending')
+            )
+            st.plotly_chart(fig_racing, use_container_width=True)
+        else:
+            st.warning("No hay suficientes datos anuales con los filtros actuales para generar el Gráfico de Carrera.")
 
     with anim_tab:
         st.subheader("Mapa Animado de Precipitación Anual")
-        # ... (código existente de esta pestaña)
+        df_anual_valid = df_anual_melted.dropna(subset=[Config.PRECIPITATION_COL])
+
+        if not df_anual_valid.empty:
+            df_anim_merged = pd.merge(
+                df_anual_valid,
+                gdf_filtered.drop_duplicates(subset=[Config.STATION_NAME_COL]),
+                on=Config.STATION_NAME_COL,
+                how="inner"
+            )
+            if not df_anim_merged.empty:
+                fig_mapa_animado = px.scatter_geo(
+                    df_anim_merged,
+                    lat=Config.LATITUDE_COL, lon=Config.LONGITUDE_COL,
+                    color=Config.PRECIPITATION_COL, size=Config.PRECIPITATION_COL,
+                    hover_name=Config.STATION_NAME_COL,
+                    animation_frame=Config.YEAR_COL,
+                    projection='natural earth',
+                    title='Precipitación Anual por Estación'
+                )
+                fig_mapa_animado.update_geos(fitbounds="locations", visible=True)
+                st.plotly_chart(fig_mapa_animado, use_container_width=True)
+            else:
+                st.warning("No se pudieron combinar los datos anuales con la información geográfica de las estaciones.")
+        else:
+            st.warning("No hay suficientes datos anuales con los filtros actuales para generar el Mapa Animado.")
 
     with compare_tab:
         st.subheader("Comparación de Mapas Anuales")
-        # ... (código existente de esta pestaña)
+        df_anual_valid = df_anual_melted.dropna(subset=[Config.PRECIPITATION_COL])
+
+        if not df_anual_valid.empty and len(df_anual_valid[Config.YEAR_COL].unique()) > 1:
+            # ... (el resto del código de esta pestaña, que ya tienes, va aquí)
+        else:
+            st.warning("Se necesitan datos de al menos dos años diferentes para generar la Comparación de Mapas.")
 
     with kriging_tab:
         st.subheader("Comparación de Superficies de Interpolación Anual")
