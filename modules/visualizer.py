@@ -746,12 +746,11 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
                     st.warning(f"Error al cargar/mostrar GIF: {e}")
         else:
             st.warning("No se encontró el archivo GIF en la ruta especificada.")
-
-    # El bloque "with mapa_interactivo_tab:" ha sido eliminado completamente.
-
+    
     with temporal_tab:
         st.subheader("Explorador Anual de Precipitación")
         df_anual_melted_non_na = df_anual_melted.dropna(subset=[Config.PRECIPITATION_COL])
+        
         if not df_anual_melted_non_na.empty:
             all_years_int = sorted(df_anual_melted_non_na[Config.YEAR_COL].unique())
             controls_col, map_col = st.columns([1, 3])
@@ -759,12 +758,14 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
             with controls_col:
                 st.markdown("##### Opciones de Visualización")
                 selected_base_map_config, selected_overlays_config = display_map_controls(st, "temporal")
-                
+
                 selected_year = None
                 if len(all_years_int) > 1:
                     selected_year = st.slider('Seleccione un Año para Explorar', 
-                                              min_value=min(all_years_int), max_value=max(all_years_int), 
-                                              value=min(all_years_int), key="temporal_year_slider")
+                                              min_value=min(all_years_int),
+                                              max_value=max(all_years_int), 
+                                              value=min(all_years_int),
+                                              key="temporal_year_slider")
                 elif len(all_years_int) == 1:
                     selected_year = all_years_int[0]
                     st.info(f"Mostrando único año disponible: {selected_year}")
@@ -772,9 +773,11 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
                 if selected_year:
                     st.markdown(f"#### Resumen del Año: {selected_year}")
                     df_year_filtered = df_anual_melted_non_na[df_anual_melted_non_na[Config.YEAR_COL] == selected_year]
+                    
                     if not df_year_filtered.empty:
                         num_stations = len(df_year_filtered)
                         st.metric("Estaciones con Datos", num_stations)
+                        
                         if num_stations > 1:
                             st.metric("Promedio Anual", f"{df_year_filtered[Config.PRECIPITATION_COL].mean():.0f} mm")
                             st.metric("Máximo Anual", f"{df_year_filtered[Config.PRECIPITATION_COL].max():.0f} mm")
@@ -804,13 +807,9 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
                             colormap = cm.LinearColormap(colors=plt.cm.viridis.colors, vmin=min_val, vmax=max_val)
                             
                             for _, row in df_map_data.iterrows():
-                                # Se activa el minigráfico en el popup
-                                popup_object = generate_station_popup_html(
-                                    row, 
-                                    df_anual_melted, 
-                                    include_chart=True, 
-                                    df_monthly_filtered=df_monthly_filtered
-                                )
+                                popup_object = generate_station_popup_html(row, df_anual_melted, 
+                                                                           include_chart=True, 
+                                                                           df_monthly_filtered=df_monthly_filtered)
                                 folium.CircleMarker(
                                     location=[row['geometry'].y, row['geometry'].x], radius=5,
                                     color=colormap(row[Config.PRECIPITATION_COL]), fill=True,
