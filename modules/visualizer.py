@@ -1,3 +1,10 @@
+# modules/visualizer.py
+
+# --- Importaciones Estándar y de Terceros ---
+import streamlit as st
+import pandas as pd
+import geopandas as gpd
+import altair as alt
 import folium
 from folium.plugins import MarkerCluster, MiniMap
 from folium.raster_layers import WmsTileLayer
@@ -9,13 +16,12 @@ import os
 import base64
 import branca.colormap as cm
 import matplotlib.pyplot as plt
-import io
-import streamlit as st
-import altair as alt
-import pandas as pd
-
-# Importar bibliotecas científicas
+import matplotlib.cm as mpl_cm
 from scipy import stats
+from scipy.interpolate import Rbf
+import pymannkendall as mk
+from prophet.plot import plot_plotly
+import io
 
 # --- Importaciones de Módulos Propios ---
 from modules.config import Config
