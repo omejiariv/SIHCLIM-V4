@@ -1036,10 +1036,7 @@ def display_drought_analysis_tab(df_monthly_filtered, gdf_filtered, stations_for
     if not stations_for_analysis:
         st.warning("Por favor, seleccione al menos una estación para ver esta sección.")
         return
-    if not stations_for_analysis:
-        st.warning("Por favor, seleccione al menos una estación para ver esta sección.")
-        return
-
+    
     percentile_sub_tab, indices_sub_tab = st.tabs(["Análisis por Percentiles", "Índices de Sequía (SPI/SPEI)"])
 
     with percentile_sub_tab:
