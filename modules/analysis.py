@@ -16,9 +16,9 @@ def calculate_spi(series, window):
 
 def calculate_spei(precip_series, et_series, scale):
     """
-    Calcula el SPEI usando una implementación directa con SciPy.
+    Calculates the SPEI using a direct implementation with SciPy.
     """
-    from scipy.stats import loglaplace # Importación local para claridad
+    from scipy.stats import loglaplace
     
     scale = int(scale)
     
@@ -29,26 +29,26 @@ def calculate_spei(precip_series, et_series, scale):
     if len(df) < scale * 2:
         return pd.Series(dtype=float)
 
-    # 1. Calcular el balance hídrico (Precipitación - Evapotranspiración)
+    # Calculate the water balance (Precipitation - Evapotranspiration)
     water_balance = df['precip'] - df['et']
     
-    # 2. Acumular el balance hídrico en la escala de tiempo deseada
+    # Accumulate the water balance over the desired timescale
     rolling_balance = water_balance.rolling(window=scale, min_periods=scale).sum()
 
-    # 3. Ajustar una distribución Log-Laplace (equivalente a Log-Logística)
+    # Fit a Log-Laplace distribution (equivalent to Log-Logistic)
     params = loglaplace.fit(rolling_balance.dropna())
     
-    # 4. Calcular la probabilidad acumulada (CDF)
+    # Calculate the cumulative distribution function (CDF)
     cdf = loglaplace.cdf(rolling_balance, *params)
     
-    # 5. Transformar a Z-score de la distribución normal
+    # Transform to a Z-score of the normal distribution
     spei = norm.ppf(cdf)
     
-    # 6. Manejar valores infinitos
+    # Handle infinite values
     spei = np.where(np.isinf(spei), np.nan, spei)
     
     return pd.Series(spei, index=rolling_balance.index)
-
+    
 def calculate_monthly_anomalies(df_monthly_filtered, df_long):
     df_climatology = df_long[
         df_long[Config.STATION_NAME_COL].isin(df_monthly_filtered[Config.STATION_NAME_COL].unique())
