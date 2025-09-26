@@ -1033,8 +1033,14 @@ def display_drought_analysis_tab(df_monthly_filtered, gdf_filtered, stations_for
     percentile_sub_tab, indices_sub_tab = st.tabs(["Análisis por Percentiles", "Índices de Sequía (SPI/SPEI)"])
 
     with percentile_sub_tab:
-        # ... (código existente de esta pestaña)
-        st.write("Análisis por percentiles en construcción.")
+        st.subheader("Análisis de Eventos Extremos por Percentiles Mensuales")
+        station_to_analyze_perc = st.selectbox(
+            "Seleccione una estación para el análisis:",
+            options=sorted(stations_for_analysis),
+            key="percentile_station_select"
+        )
+        if station_to_analyze_perc:
+            display_percentile_analysis_subtab(df_monthly_filtered, station_to_analyze_perc)
 
     with indices_sub_tab:
         st.subheader("Análisis con Índices Estandarizados")
