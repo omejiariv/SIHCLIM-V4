@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import io
 import streamlit as st
 import altair as alt
+import pandas as pd
 
 # Importar bibliotecas científicas
 from scipy import stats
