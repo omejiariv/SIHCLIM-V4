@@ -33,6 +33,22 @@ from modules.forecasting import (
     get_decomposition_results, create_acf_chart, create_pacf_chart
 )
 
+def display_filter_summary(total_stations_count, selected_stations_count, year_range, selected_months_count):
+    """Muestra una caja informativa con un resumen de los filtros aplicados."""
+    
+    # Formatear el rango de años
+    if isinstance(year_range, tuple) and len(year_range) == 2:
+        year_text = f"{year_range[0]} – {year_range[1]}"
+    else:
+        year_text = "N/A"
+
+    summary_text = (
+        f"**Estaciones Seleccionadas:** `{selected_stations_count} de {total_stations_count}` | "
+        f"**Período:** `{year_text}` | "
+        f"**Meses:** `{selected_months_count} de 12`"
+    )
+    st.info(summary_text)
+
 def get_map_options():
     return {
         "CartoDB Positron (Predeterminado)": {"tiles": "cartodbpositron", "attr": '&copy; <a href="https://carto.com/attributions">CartoDB</a>', "overlay": False},
@@ -713,31 +729,43 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
     with temporal_tab:
         st.subheader("Explorador Anual de Precipitación")
         df_anual_melted_non_na = df_anual_melted.dropna(subset=[Config.PRECIPITATION_COL])
+        
         if not df_anual_melted_non_na.empty:
             all_years_int = sorted(df_anual_melted_non_na[Config.YEAR_COL].unique())
             controls_col, map_col = st.columns([1, 3])
+            
             with controls_col:
                 st.markdown("##### Opciones de Visualización")
-                selected_base_map_config, selected_overlays_config = display_map_controls(st,
-                                                                                          "temporal")
-                selected_year = st.slider('Seleccione un Año para Explorar', min_value=min(all_years_int),
-                                            max_value=max(all_years_int), value=min(all_years_int),
-                                            key="temporal_year_slider")
-                st.markdown(f"#### Resumen del Año: {selected_year}")
-                df_year_filtered = df_anual_melted_non_na[df_anual_melted_non_na[Config.YEAR_COL]
-                                                          == selected_year]
+                selected_base_map_config, selected_overlays_config = display_map_controls(st, "temporal")
+
+                # --- INICIO DE LA CORRECCIÓN DE LÓGICA ---
+                selected_year = None
+                if len(all_years_int) > 1:
+                    # Si hay más de un año, muestra el slider
+                    selected_year = st.slider('Seleccione un Año para Explorar', 
+                                              min_value=min(all_years_int),
+                                              max_value=max(all_years_int), 
+                                              value=min(all_years_int),
+                                              key="temporal_year_slider")
+                elif len(all_years_int) == 1:
+                    # Si solo hay un año, muéstralo como texto
+                    selected_year = all_years_int[0]
+                    st.info(f"Mostrando único año disponible: {selected_year}")
                 
-                if not df_year_filtered.empty:
-                    num_stations = len(df_year_filtered)
-                    st.metric("Estaciones con Datos", num_stations)
+                if selected_year:
+                    st.markdown(f"#### Resumen del Año: {selected_year}")
+                    df_year_filtered = df_anual_melted_non_na[df_anual_melted_non_na[Config.YEAR_COL] == selected_year]
                     
-                    if num_stations > 1:
-                        # Si hay más de una estación, muestra promedio y máximo
-                        st.metric("Promedio Anual", f"{df_year_filtered[Config.PRECIPITATION_COL].mean():.0f} mm")
-                        st.metric("Máximo Anual", f"{df_year_filtered[Config.PRECIPITATION_COL].max():.0f} mm")
-                    else:
-                        # Si solo hay una, muestra su valor directamente
-                        st.metric("Precipitación Anual", f"{df_year_filtered[Config.PRECIPITATION_COL].iloc[0]:.0f} mm")
+                    if not df_year_filtered.empty:
+                        num_stations = len(df_year_filtered)
+                        st.metric("Estaciones con Datos", num_stations)
+                        
+                        if num_stations > 1:
+                            st.metric("Promedio Anual", f"{df_year_filtered[Config.PRECIPITATION_COL].mean():.0f} mm")
+                            st.metric("Máximo Anual", f"{df_year_filtered[Config.PRECIPITATION_COL].max():.0f} mm")
+                        else:
+                            st.metric("Precipitación Anual", f"{df_year_filtered[Config.PRECIPITATION_COL].iloc[0]:.0f} mm")
+                            
             with map_col:
                 m_temporal = create_folium_map([4.57, -74.29], 5, selected_base_map_config,
                                                selected_overlays_config)
