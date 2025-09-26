@@ -773,7 +773,6 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
                 st.markdown("##### Opciones de Visualización")
                 selected_base_map_config, selected_overlays_config = display_map_controls(st, "temporal")
 
-                # --- INICIO DE LA CORRECCIÓN DE LÓGICA ---
                 selected_year = None
                 if len(all_years_int) > 1:
                     # Si hay más de un año, muestra el slider
