@@ -662,6 +662,9 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
         else f"1 estación: {stations_for_analysis[0]}"
     st.info(f"Mostrando análisis para {selected_stations_str}.")
 
+    # --- CORRECCIÓN: Definir df_anual_non_na aquí ---
+    df_anual_non_na = df_anual_melted.dropna(subset=[Config.PRECIPITATION_COL])
+
     tab_names = ["Animación GIF (Antioquia)", "Visualización de Estación", "Visualización Temporal",
                  "Gráfico de Carrera", "Mapa Animado", "Comparación de Mapas", "Interpolación Comparativa"]
     
