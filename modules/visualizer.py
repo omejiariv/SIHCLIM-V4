@@ -11,6 +11,7 @@ import branca.colormap as cm
 import matplotlib.pyplot as plt
 import io
 import streamlit as st
+import altair as alt
 
 # Importar bibliotecas científicas
 from scipy import stats
