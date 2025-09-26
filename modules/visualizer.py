@@ -1,9 +1,3 @@
-# modules/visualizer.py
-
-import streamlit as st
-import pandas as pd
-import geopandas as gpd
-import altair as alt
 import folium
 from folium.plugins import MarkerCluster, MiniMap
 from folium.raster_layers import WmsTileLayer
@@ -16,6 +10,9 @@ import base64
 import branca.colormap as cm
 import matplotlib.pyplot as plt
 import io
+
+# Importar bibliotecas científicas
+from scipy import stats
 
 # --- Importaciones de Módulos Propios ---
 from modules.config import Config
