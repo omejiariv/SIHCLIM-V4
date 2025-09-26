@@ -54,16 +54,24 @@ def get_map_options():
         "CartoDB Positron (Predeterminado)": {"tiles": "cartodbpositron", "attr": '&copy; <a href="https://carto.com/attributions">CartoDB</a>', "overlay": False},
         "OpenStreetMap": {"tiles": "OpenStreetMap", "attr": '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors', "overlay": False},
         "Topografía (OpenTopoMap)": {"tiles": "https://{s}.tile.opentomap.org/{z}/{x}/{y}.png", "attr": 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">Open Topo Map</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)', "overlay": False},
+        "Relieve y Océanos (GEBCO)": {"url": "https://www.gebco.net/data_and_products/gebco_web_services/web_map_service/web_map_service.php", "layers": "GEBCO_2021_Surface", "transparent": False, "attr": "GEBCO 2021", "overlay": True},
+        "Mapa de Colombia (WMS IDEAM)": {"url": "https://geoservicios.ideam.gov.co/geoserver/ideam/wms", "layers": "ideam:col_admin", "transparent": True, "attr": "IDEAM", "overlay": True},
+        "Cobertura de la Tierra (WMS IGAC)": {"url": "https://servicios.igac.gov.co/server/services/IDEAM/IDEAM_Cobertura_Corine/MapServer/WMSServer", "layers": "IDEAM_Cobertura_Corine_Web", "transparent": True, "attr": "IGAC", "overlay": True},
     }
 
 def display_map_controls(container_object, key_prefix):
     map_options = get_map_options()
     base_maps = {k: v for k, v in map_options.items() if not v.get("overlay")}
+    overlays = {k: v for k, v in map_options.items() if v.get("overlay")}
+    
     selected_base_map_name = container_object.selectbox("Seleccionar Mapa Base",
                                                         list(base_maps.keys()), key=f"{key_prefix}_base_map")
     
-    # Temporarily disable additional layers to simplify
-    selected_overlays_config = [] 
+    default_overlays = ["Mapa de Colombia (WMS IDEAM)"]
+    selected_overlays_names = container_object.multiselect("Seleccionar Capas Adicionales",
+                                                     list(overlays.keys()), default=default_overlays, key=f"{key_prefix}_overlays")
+    
+    selected_overlays_config = [overlays[k] for k in selected_overlays_names]
     
     return base_maps[selected_base_map_name], selected_overlays_config
 
@@ -279,8 +287,6 @@ def display_spatial_distribution_tab(gdf_filtered, stations_for_analysis, df_anu
     else:
         year_min, year_max = st.session_state.get('year_range_single', (2000, 2020))
 
-    st.info(f"Mostrando análisis para {selected_stations_str} en el período {year_min} - {year_max}.")
-
     gdf_display = gdf_filtered.copy()
 
     if not df_anual_melted.dropna(subset=[Config.PRECIPITATION_COL]).empty:
@@ -414,8 +420,7 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
         year_min, year_max = st.session_state.get('year_range_single', (2000, 2020))
         
     selected_stations_str = f"{len(stations_for_analysis)} estaciones" if len(stations_for_analysis) > 1 else f"1 estación: {stations_for_analysis[0]}"
-    st.info(f"Mostrando análisis para {selected_stations_str} en el período {year_min} - {year_max} y meses seleccionados.")
-
+    
     sub_tab_anual, sub_tab_mensual, sub_tab_comparacion, sub_tab_distribucion, \
     sub_tab_acumulada, sub_tab_altitud, sub_tab_regional = \
         st.tabs(["Análisis Anual", "Análisis Mensual", "Comparación Rápida", "Distribución",
@@ -714,8 +719,7 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
 
     selected_stations_str = f"{len(stations_for_analysis)} estaciones" if len(stations_for_analysis) > 1 \
         else f"1 estación: {stations_for_analysis[0]}"
-    st.info(f"Mostrando análisis para {selected_stations_str}.")
-
+    
     tab_names = ["Animación GIF (Antioquia)", "Visualización de Estación", "Visualización Temporal",
                  "Gráfico de Carrera", "Mapa Animado", "Comparación de Mapas", "Interpolación Comparativa"]
     
@@ -1118,8 +1122,7 @@ def display_anomalies_tab(df_long, df_monthly_filtered, stations_for_analysis):
         return
     
     selected_stations_str = f"{len(stations_for_analysis)} estaciones" if len(stations_for_analysis) > 1 else f"1 estación: {stations_for_analysis[0]}"
-    st.info(f"Mostrando análisis para {selected_stations_str}.")
-
+    
     if df_long is None or df_long.empty:
         st.warning("No se puede realizar el análisis de anomalías. El DataFrame base no está disponible.")
         return
@@ -1199,8 +1202,7 @@ def display_stats_tab(df_long, df_anual_melted, df_monthly_filtered, stations_fo
         return
     
     selected_stations_str = f"{len(stations_for_analysis)} estaciones" if len(stations_for_analysis) > 1 else f"1 estación: {stations_for_analysis[0]}"
-    st.info(f"Mostrando análisis para {selected_stations_str}.")
-
+    
     matriz_tab, resumen_mensual_tab, sintesis_tab = st.tabs(["Matriz de Disponibilidad", "Resumen Mensual", "Síntesis General"])
 
     with matriz_tab:
@@ -1536,8 +1538,7 @@ def display_enso_tab(df_monthly_filtered, df_enso, gdf_filtered, stations_for_an
         return
     
     selected_stations_str = f"{len(stations_for_analysis)} estaciones" if len(stations_for_analysis) > 1 else f"1 estación: {stations_for_analysis[0]}"
-    st.info(f"Mostrando análisis para {selected_stations_str}.")
-
+    
     if df_enso is None or df_enso.empty:
         st.warning("No se encontraron datos del fenómeno ENSO en el archivo de precipitación cargado.")
         return
@@ -1656,8 +1657,7 @@ def display_trends_and_forecast_tab(df_anual_melted, df_monthly_to_process, stat
         return
     
     selected_stations_str = f"{len(stations_for_analysis)} estaciones" if len(stations_for_analysis) > 1 else f"1 estación: {stations_for_analysis[0]}"
-    st.info(f"Mostrando análisis para {selected_stations_str}.")
-
+    
     tab_names = [
         "Análisis Lineal", "Tendencia Mann-Kendall", "Tabla Comparativa",
         "Descomposición de Series", "Autocorrelación (ACF/PACF)",
