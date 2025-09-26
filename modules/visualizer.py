@@ -710,10 +710,7 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
         year_range=st.session_state.year_range,
         selected_months_count=len(st.session_state.meses_numeros)
     )
-    
-    if not stations_for_analysis:
-        st.warning("Por favor, seleccione al menos una estación para ver esta sección.")
-        return
+        
     if not stations_for_analysis:
         st.warning("Por favor, seleccione al menos una estación para ver esta sección.")
         return
@@ -721,10 +718,10 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
     selected_stations_str = f"{len(stations_for_analysis)} estaciones" if len(stations_for_analysis) > 1 \
         else f"1 estación: {stations_for_analysis[0]}"
     
-    tab_names = ["Animación GIF (Antioquia)", "Visualización de Estación", "Visualización Temporal",
-                 "Gráfico de Carrera", "Mapa Animado", "Comparación de Mapas", "Interpolación Comparativa"]
+    tab_names = ["Animación GIF (Antioquia)", "Visualización Temporal", "Gráfico de Carrera", 
+                 "Mapa Animado", "Comparación de Mapas", "Interpolación Comparativa"]
     
-    gif_tab, mapa_interactivo_tab, temporal_tab, race_tab, anim_tab, compare_tab, kriging_tab = \
+    gif_tab, temporal_tab, race_tab, anim_tab, compare_tab, kriging_tab = \
         st.tabs(tab_names)
 
     with gif_tab:
@@ -764,7 +761,6 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
     with temporal_tab:
         st.subheader("Explorador Anual de Precipitación")
         df_anual_melted_non_na = df_anual_melted.dropna(subset=[Config.PRECIPITATION_COL])
-        
         if not df_anual_melted_non_na.empty:
             all_years_int = sorted(df_anual_melted_non_na[Config.YEAR_COL].unique())
             controls_col, map_col = st.columns([1, 3])
@@ -772,74 +768,79 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
             with controls_col:
                 st.markdown("##### Opciones de Visualización")
                 selected_base_map_config, selected_overlays_config = display_map_controls(st, "temporal")
-
+                
                 selected_year = None
                 if len(all_years_int) > 1:
-                    # Si hay más de un año, muestra el slider
                     selected_year = st.slider('Seleccione un Año para Explorar', 
-                                              min_value=min(all_years_int),
-                                              max_value=max(all_years_int), 
-                                              value=min(all_years_int),
-                                              key="temporal_year_slider")
+                                              min_value=min(all_years_int), max_value=max(all_years_int), 
+                                              value=min(all_years_int), key="temporal_year_slider")
                 elif len(all_years_int) == 1:
-                    # Si solo hay un año, muéstralo como texto
                     selected_year = all_years_int[0]
                     st.info(f"Mostrando único año disponible: {selected_year}")
                 
                 if selected_year:
                     st.markdown(f"#### Resumen del Año: {selected_year}")
                     df_year_filtered = df_anual_melted_non_na[df_anual_melted_non_na[Config.YEAR_COL] == selected_year]
-                    
                     if not df_year_filtered.empty:
                         num_stations = len(df_year_filtered)
                         st.metric("Estaciones con Datos", num_stations)
-                        
                         if num_stations > 1:
                             st.metric("Promedio Anual", f"{df_year_filtered[Config.PRECIPITATION_COL].mean():.0f} mm")
                             st.metric("Máximo Anual", f"{df_year_filtered[Config.PRECIPITATION_COL].max():.0f} mm")
                         else:
                             st.metric("Precipitación Anual", f"{df_year_filtered[Config.PRECIPITATION_COL].iloc[0]:.0f} mm")
-                            
+
             with map_col:
-                m_temporal = create_folium_map([4.57, -74.29], 5, selected_base_map_config,
-                                               selected_overlays_config)
-                df_year_filtered = df_anual_melted_non_na[df_anual_melted_non_na[Config.YEAR_COL] == selected_year]
-                if not df_year_filtered.empty:
-                    cols_to_merge = [
-                        Config.STATION_NAME_COL, Config.LATITUDE_COL, Config.LONGITUDE_COL, 
-                        Config.MUNICIPALITY_COL, Config.ALTITUDE_COL, 'geometry'
-                    ]
-                    df_map_data = pd.merge(
-                        df_year_filtered,
-                        gdf_filtered[cols_to_merge].drop_duplicates(),
-                        on=Config.STATION_NAME_COL, how="inner"
-                    )
-                    if not df_map_data.empty:
-                        min_val, max_val = df_anual_melted_non_na[Config.PRECIPITATION_COL].min(), \
-                            df_anual_melted_non_na[Config.PRECIPITATION_COL].max()
-                        if min_val >= max_val: max_val = min_val + 1
-                        colormap = cm.LinearColormap(
-                            colors=mpl_cm.get_cmap('viridis').colors, vmin=min_val, vmax=max_val
+                if selected_year:
+                    m_temporal = create_folium_map([4.57, -74.29], 5, selected_base_map_config, selected_overlays_config)
+                    df_year_filtered = df_anual_melted_non_na[df_anual_melted_non_na[Config.YEAR_COL] == selected_year]
+                    
+                    if not df_year_filtered.empty:
+                        cols_to_merge = [
+                            Config.STATION_NAME_COL, Config.LATITUDE_COL, Config.LONGITUDE_COL, 
+                            Config.MUNICIPALITY_COL, Config.ALTITUDE_COL, 'geometry'
+                        ]
+                        df_map_data = pd.merge(
+                            df_year_filtered,
+                            gdf_filtered[cols_to_merge].drop_duplicates(),
+                            on=Config.STATION_NAME_COL, how="inner"
                         )
-                        for _, row in df_map_data.iterrows():
-                            popup_object = generate_station_popup_html(row, df_anual_melted)
-                            folium.CircleMarker(
-                                location=[row['geometry'].y, row['geometry'].x], radius=5,
-                                color=colormap(row[Config.PRECIPITATION_COL]), fill=True,
-                                fill_color=colormap(row[Config.PRECIPITATION_COL]), fill_opacity=0.8,
-                                tooltip=row[Config.STATION_NAME_COL], popup=popup_object
-                            ).add_to(m_temporal)
-                        temp_gdf = gpd.GeoDataFrame(df_map_data, geometry='geometry', crs=gdf_filtered.crs)
-                        if not temp_gdf.empty:
-                            bounds = temp_gdf.total_bounds
-                            if np.all(np.isfinite(bounds)):
-                                m_temporal.fit_bounds([[bounds[1], bounds[0]], [bounds[3], bounds[2]]])
-                        folium.LayerControl().add_to(m_temporal)
-                        folium_static(m_temporal, height=700, width="100%")
+                        
+                        if not df_map_data.empty:
+                            min_val, max_val = df_anual_melted_non_na[Config.PRECIPITATION_COL].min(), df_anual_melted_non_na[Config.PRECIPITATION_COL].max()
+                            if min_val >= max_val: max_val = min_val + 1
+                            
+                            colormap = cm.LinearColormap(colors=plt.cm.viridis.colors, vmin=min_val, vmax=max_val)
+                            
+                            for _, row in df_map_data.iterrows():
+                                # --- CAMBIO 2: Activar el minigráfico en el popup ---
+                                popup_object = generate_station_popup_html(
+                                    row, 
+                                    df_anual_melted, 
+                                    include_chart=True, 
+                                    df_monthly_filtered=df_monthly_filtered
+                                )
+                                folium.CircleMarker(
+                                    location=[row['geometry'].y, row['geometry'].x], radius=5,
+                                    color=colormap(row[Config.PRECIPITATION_COL]), fill=True,
+                                    fill_color=colormap(row[Config.PRECIPITATION_COL]), fill_opacity=0.8,
+                                    tooltip=row[Config.STATION_NAME_COL], popup=popup_object
+                                ).add_to(m_temporal)
+                                
+                            temp_gdf = gpd.GeoDataFrame(df_map_data, geometry='geometry', crs=gdf_filtered.crs)
+                            if not temp_gdf.empty:
+                                bounds = temp_gdf.total_bounds
+                                if np.all(np.isfinite(bounds)):
+                                    m_temporal.fit_bounds([[bounds[1], bounds[0]], [bounds[3], bounds[2]]])
+                                    
+                            folium.LayerControl().add_to(m_temporal)
+                            folium_static(m_temporal, height=700, width="100%")
+                        else:
+                            st.warning("No hay datos de estaciones válidos para el año seleccionado en el mapa.")
                     else:
-                        st.warning("No hay datos de estaciones válidos para el año seleccionado en el mapa.")
+                        st.info("No hay datos para el año seleccionado.")
                 else:
-                    st.info("No hay datos para el año seleccionado.")
+                    st.warning("No hay años con datos válidos en el rango seleccionado.")
         else:
             st.warning("No hay datos anuales para la visualización temporal.")
 
