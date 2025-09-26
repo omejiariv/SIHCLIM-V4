@@ -704,6 +704,7 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
 
 def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melted, df_monthly_filtered):
     st.header("Mapas Avanzados")
+    
     display_filter_summary(
         total_stations_count=len(st.session_state.gdf_stations),
         selected_stations_count=len(stations_for_analysis),
@@ -715,9 +716,7 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
         st.warning("Por favor, seleccione al menos una estación para ver esta sección.")
         return
 
-    selected_stations_str = f"{len(stations_for_analysis)} estaciones" if len(stations_for_analysis) > 1 \
-        else f"1 estación: {stations_for_analysis[0]}"
-    
+    # --- Se elimina "Visualización de Estación" de la lista ---
     tab_names = ["Animación GIF (Antioquia)", "Visualización Temporal", "Gráfico de Carrera", 
                  "Mapa Animado", "Comparación de Mapas", "Interpolación Comparativa"]
     
@@ -748,15 +747,7 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
         else:
             st.warning("No se encontró el archivo GIF en la ruta especificada.")
 
-    with mapa_interactivo_tab:
-        st.subheader("Visualización de una Estación con Mini-gráfico de Precipitación")
-        st.info("Esta función se encuentra actualmente en desarrollo y estará disponible en futuras versiones.")
-        st.selectbox(
-            "Seleccione la estación a visualizar:",
-            options=[stations_for_analysis[0]] if stations_for_analysis else [], 
-            disabled=True,
-            key="adv_map_station_select_placeholder"
-        )
+    # El bloque "with mapa_interactivo_tab:" ha sido eliminado completamente.
 
     with temporal_tab:
         st.subheader("Explorador Anual de Precipitación")
@@ -813,7 +804,7 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
                             colormap = cm.LinearColormap(colors=plt.cm.viridis.colors, vmin=min_val, vmax=max_val)
                             
                             for _, row in df_map_data.iterrows():
-                                # --- CAMBIO 2: Activar el minigráfico en el popup ---
+                                # Se activa el minigráfico en el popup
                                 popup_object = generate_station_popup_html(
                                     row, 
                                     df_anual_melted, 
@@ -843,7 +834,7 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
                     st.warning("No hay años con datos válidos en el rango seleccionado.")
         else:
             st.warning("No hay datos anuales para la visualización temporal.")
-
+            
     with race_tab:
         st.subheader("Ranking Anual de Precipitación por Estación")
         df_anual_valid = df_anual_melted.dropna(subset=[Config.PRECIPITATION_COL])
