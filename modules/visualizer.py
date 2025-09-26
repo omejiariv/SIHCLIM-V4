@@ -10,6 +10,7 @@ import base64
 import branca.colormap as cm
 import matplotlib.pyplot as plt
 import io
+import streamlit as st
 
 # Importar bibliotecas científicas
 from scipy import stats
