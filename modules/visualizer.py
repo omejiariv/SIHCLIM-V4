@@ -822,13 +822,59 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
         all_years = sorted(df_anual_valid[Config.YEAR_COL].unique())
 
         if len(all_years) > 1:
-            col1, col2 = st.columns(2)
-            with col1:
+            control_col, map_col1, map_col2 = st.columns([1, 2, 2])
+
+            with control_col:
+                st.markdown("##### Controles de Mapa")
+                selected_base_map_config, selected_overlays_config = display_map_controls(st, "compare")
+                
+                min_year, max_year = int(all_years[0]), int(all_years[-1])
+                
+                st.markdown("**Mapa 1**")
                 year1 = st.selectbox("Seleccione el primer año", options=all_years, index=len(all_years)-1, key="compare_year1")
-            with col2:
+                
+                st.markdown("**Mapa 2**")
                 year2 = st.selectbox("Seleccione el segundo año", options=all_years, index=len(all_years)-2, key="compare_year2")
-            # Placeholder for map creation logic
-            st.info("La funcionalidad de comparación de mapas está en construcción.")
+                
+                min_precip, max_precip = int(df_anual_valid[Config.PRECIPITATION_COL].min()), int(df_anual_valid[Config.PRECIPITATION_COL].max())
+                if min_precip >= max_precip: max_precip = min_precip + 1
+                
+                color_range = st.slider("Rango de Escala de Color (mm)", min_precip, max_precip, (min_precip, max_precip), key="color_compare")
+
+            # Colormap consistente para ambos mapas
+            colormap = cm.LinearColormap(
+                colors=plt.cm.viridis.colors,
+                vmin=color_range[0], vmax=color_range[1]
+            )
+
+            def create_compare_map(data, year, col, gdf_stations_info):
+                col.markdown(f"**Precipitación en {year}**")
+                m = create_folium_map([6.24, -75.58], 6, selected_base_map_config, selected_overlays_config)
+                if not data.empty:
+                    data_with_geom = pd.merge(data, gdf_stations_info, on=Config.STATION_NAME_COL)
+                    gpd_data = gpd.GeoDataFrame(data_with_geom, geometry='geometry', crs=gdf_stations_info.crs)
+                    for _, row in gpd_data.iterrows():
+                        if pd.notna(row[Config.PRECIPITATION_COL]):
+                            popup_object = generate_station_popup_html(row, df_anual_melted)
+                            folium.CircleMarker(
+                                location=[row['geometry'].y, row['geometry'].x], radius=5,
+                                color=colormap(row[Config.PRECIPITATION_COL]),
+                                fill=True, fill_color=colormap(row[Config.PRECIPITATION_COL]), fill_opacity=0.8,
+                                tooltip=row[Config.STATION_NAME_COL], popup=popup_object
+                            ).add_to(m)
+                    if not gpd_data.empty:
+                        m.fit_bounds(gpd_data.total_bounds.tolist())
+                folium.LayerControl().add_to(m)
+                with col:
+                    folium_static(m, height=450, width="100%")
+
+            gdf_geometries = gdf_filtered[[Config.STATION_NAME_COL, 'geometry']].drop_duplicates()
+            data_year1 = df_anual_valid[df_anual_valid[Config.YEAR_COL] == year1]
+            data_year2 = df_anual_valid[df_anual_valid[Config.YEAR_COL] == year2]
+            
+            create_compare_map(data_year1, year1, map_col1, gdf_geometries)
+            create_compare_map(data_year2, year2, map_col2, gdf_geometries)
+
         else:
             st.warning("Se necesitan datos de al menos dos años diferentes para generar la Comparación de Mapas.")
 
