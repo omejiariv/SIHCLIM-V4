@@ -100,9 +100,22 @@ def create_interpolation_surface(year, method, variogram_model, gdf_filtered_map
                                         contours=dict(showlabels=True,
                                                       labelfont=dict(size=10, color='white'),
                                                       labelformat=".0f")))
-        fig.add_trace(go.Scatter(x=lons, y=lats, mode='markers', marker=dict(color='red', size=5), name='Estaciones',
-                                 text=[f"{row[Config.STATION_NAME_COL]}: {row[Config.PRECIPITATION_COL]:.0f} mm" for _, row in df_clean.iterrows()],
-                                 hoverinfo='text'))
+        
+        # --- INICIO DE LA CORRECCIÓN ---
+        # Se formatea el texto del hover para incluir más información
+        hover_text = [
+            f"<b>{row[Config.STATION_NAME_COL]}</b><br>"
+            f"Municipio: {row[Config.MUNICIPALITY_COL]}<br>"
+            f"Precipitación: {row[Config.PRECIPITATION_COL]:.0f} mm"
+            for _, row in df_clean.iterrows()
+        ]
+        fig.add_trace(go.Scatter(
+            x=lons, y=lats, mode='markers', 
+            marker=dict(color='red', size=5), 
+            name='Estaciones',
+            text=hover_text,
+            hoverinfo='text'
+        ))
         fig.update_layout(title=f"Precipitación en {year} ({method})", height=600)
         return fig, fig_variogram, None
 
