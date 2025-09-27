@@ -28,7 +28,7 @@ class Config:
     LATITUDE_COL = 'latitud_wgs84'
     LONGITUDE_COL = 'longitud_wgs84'
     MUNICIPALITY_COL = 'municipio'
-    REGION_COL = 'departamento'
+    REGION_COL = 'depto_region'
     PERCENTAGE_COL = 'porc_datos'
     YEAR_COL = 'año'
     MONTH_COL = 'mes'
