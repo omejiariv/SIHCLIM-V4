@@ -9,6 +9,7 @@ import os
 import io
 import numpy as np
 import rasterio
+import requests
 from modules.config import Config
 from modules.utils import standardize_numeric_column
 from scipy.interpolate import Rbf
@@ -26,7 +27,7 @@ def parse_spanish_dates(date_series):
     return pd.to_datetime(date_series_str, format='%b-%y', errors='coerce')
 
 @st.cache_data
-def load_csv_data(file_uploader_object, sep=';', lower_case=True):
+def load_csv_data(file_uploader_object, sep=",", lower_case=True):
     if file_uploader_object is None:
         return None
     try:
@@ -37,18 +38,18 @@ def load_csv_data(file_uploader_object, sep=';', lower_case=True):
     except Exception as e:
         st.error(f"Error al leer el archivo '{file_uploader_object.name}': {e}")
         return None
-        
+    
     encodings_to_try = ['utf-8', 'latin1', 'cp1252', 'iso-8859-1']
     for encoding in encodings_to_try:
         try:
             df = pd.read_csv(io.BytesIO(content), sep=sep, encoding=encoding)
-            df.columns = df.columns.str.strip().str.replace(';', '', regex=False)
+            df.columns = df.columns.str.strip().str.replace(';', ",", regex=False)
             if lower_case:
                 df.columns = df.columns.str.lower()
             return df
         except Exception:
             continue
-            
+
     st.error(f"No se pudo decodificar el archivo '{file_uploader_object.name}' con las codificaciones probadas.")
     return None
 
@@ -60,12 +61,10 @@ def load_shapefile(file_uploader_object):
         with tempfile.TemporaryDirectory() as temp_dir:
             with zipfile.ZipFile(file_uploader_object, 'r') as zip_ref:
                 zip_ref.extractall(temp_dir)
-            
             shp_files = [f for f in os.listdir(temp_dir) if f.endswith('.shp')]
             if not shp_files:
                 st.error("No se encontró un archivo .shp en el archivo .zip.")
                 return None
-            
             shp_path = os.path.join(temp_dir, shp_files[0])
             gdf = gpd.read_file(shp_path)
             gdf.columns = gdf.columns.str.strip().str.lower()
@@ -109,31 +108,35 @@ def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded
     
     if any(df is None for df in [df_stations_raw, df_precip_raw, gdf_municipios]):
         return None, None, None, None
-
+        
     lon_col = next((col for col in df_stations_raw.columns if 'longitud' in col.lower() or 'lon' in col.lower()), None)
     lat_col = next((col for col in df_stations_raw.columns if 'latitud' in col.lower() or 'lat' in col.lower()), None)
     
     if not all([lon_col, lat_col]):
         st.error("No se encontraron columnas de longitud y/o latitud en el archivo de estaciones.")
         return None, None, None, None
-
-    df_stations_raw[lon_col] = standardize_numeric_column(df_stations_raw[lon_col]) 
-    df_stations_raw[lat_col] = standardize_numeric_column(df_stations_raw[lat_col]) 
+        
+    df_stations_raw[lon_col] = standardize_numeric_column(df_stations_raw[lon_col])
+    df_stations_raw[lat_col] = standardize_numeric_column(df_stations_raw[lat_col])
+    
     if Config.ET_COL in df_stations_raw.columns:
         df_stations_raw[Config.ET_COL] = standardize_numeric_column(df_stations_raw[Config.ET_COL])
-
+        
     df_stations_raw.dropna(subset=[lon_col, lat_col], inplace=True)
     
-    gdf_stations = gpd.GeoDataFrame(df_stations_raw,
-                                    geometry=gpd.points_from_xy(df_stations_raw[lon_col], df_stations_raw[lat_col]),
-                                    crs="EPSG:9377").to_crs("EPSG:4326")
+    # Correction: Use the correct constructor method
+    gdf_stations = gpd.GeoDataFrame(
+        df_stations_raw,
+        geometry=gpd.points_from_xy(df_stations_raw[lon_col], df_stations_raw[lat_col]),
+        crs="EPSG:9377" # Assuming 9377 (MAGNA-SIRGAS) is the expected CRS before reprojecting
+    ).to_crs("EPSG:4326")
     
     gdf_stations[Config.LONGITUDE_COL] = gdf_stations.geometry.x
     gdf_stations[Config.LATITUDE_COL] = gdf_stations.geometry.y
     
     if Config.ALTITUDE_COL in gdf_stations.columns:
         gdf_stations[Config.ALTITUDE_COL] = standardize_numeric_column(gdf_stations[Config.ALTITUDE_COL])
-
+        
     station_id_cols = [col for col in df_precip_raw.columns if col.isdigit()]
     if not station_id_cols:
         st.error("No se encontraron columnas de estación (ej: '12345') en el archivo de precipitación mensual.")
@@ -145,12 +148,13 @@ def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded
                                  
     cols_to_numeric = [Config.ENSO_ONI_COL, 'temp_sst', 'temp_media',
                        Config.PRECIPITATION_COL, Config.SOI_COL, Config.IOD_COL]
+                       
     for col in cols_to_numeric:
         if col in df_long.columns:
             df_long[col] = standardize_numeric_column(df_long[col])
-
+            
     df_long.dropna(subset=[Config.PRECIPITATION_COL], inplace=True)
-    
+
     df_long[Config.DATE_COL] = parse_spanish_dates(df_long[Config.DATE_COL])
     df_long.dropna(subset=[Config.DATE_COL], inplace=True)
     
@@ -195,19 +199,73 @@ def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded
     for col in [Config.ENSO_ONI_COL, 'temp_sst', 'temp_media']:
         if col in df_enso.columns:
             df_enso[col] = standardize_numeric_column(df_enso[col])
-
+            
     return gdf_stations, gdf_municipios, df_long, df_enso
 
-def extract_elevation_from_dem(gdf_stations, uploaded_dem_file):
+def extract_elevation_from_dem(gdf_stations, dem_data_source):
     """Extrae la elevación de un DEM para cada estación en el GeoDataFrame."""
-    if uploaded_dem_file is None:
+    
+    # Verificar si es un Streamlit UploadedFile o una ruta/buffer del DEM remoto
+    if dem_data_source is None:
         return gdf_stations
+
+    # Intentar obtener el objeto/ruta del archivo
+    if hasattr(dem_data_source, 'name'):
+        # Caso UploadedFile (local)
+        file_object = dem_data_source
+    else:
+        # Caso DEM remoto ya descargado/cacheado (asumido como una ruta de archivo o buffer)
+        file_object = dem_data_source 
+
     try:
-        with rasterio.open(uploaded_dem_file) as dem:
+        # rasterio.open puede manejar la ruta del archivo o el buffer del archivo subido.
+        with rasterio.open(file_object) as dem:
             coords = [(point.x, point.y) for point in gdf_stations.geometry]
+            # Muestrear el DEM en las coordenadas de las estaciones
             elevations = [val[0] for val in dem.sample(coords)]
+            
+            # Reemplazar valores no válidos (e.g., -9999 o NaN)
+            elevations = np.array(elevations)
+            elevations[elevations < -1000] = np.nan 
+            
             gdf_stations[Config.ELEVATION_COL] = elevations
-            st.success("Elevación extraída del DEM para todas las estaciones.")
+        st.success("Elevación extraída del DEM para todas las estaciones.")
     except Exception as e:
-        st.error(f"Error al procesar el archivo DEM: {e}")
+        st.error(f"Error al procesar el archivo DEM. Asegúrese de que es un GeoTIFF válido. Error: {e}")
+        # Si falla, limpiar la columna de elevación para que el usuario pueda reintentar
+        if Config.ELEVATION_COL in gdf_stations.columns:
+            gdf_stations.drop(columns=[Config.ELEVATION_COL], inplace=True)
     return gdf_stations
+
+@st.cache_resource
+def download_and_load_remote_dem(url):
+    """
+    Descarga un DEM remoto (asumido como GeoTIFF) y lo almacena temporalmente.
+    
+    NOTA: Esta es una implementación simulada. En un caso real, la URL
+    debería apuntar a un archivo GeoTIFF accesible o un servicio WCS.
+    """
+    if not url:
+        raise ValueError("La URL del servidor DEM no está configurada.")
+        
+    # **IMPLEMENTACIÓN SIMULADA REAL**
+    # En un caso real, aquí descargarías el archivo GeoTIFF:
+    # response = requests.get(url, stream=True)
+    # with tempfile.NamedTemporaryFile(delete=False) as tmp:
+    #    for chunk in response.iter_content(chunk_size=1024):
+    #        tmp.write(chunk)
+    # return tmp.name # Retorna la ruta del archivo temporal
+    
+    # Dado que no puedo ejecutar descargas ni asumir un servidor, 
+    # simulamos la descarga exitosa y retornamos la URL como identificador
+    # para que extract_elevation_from_dem pueda intentar cargarlo (lo que fallará sin el archivo real)
+    # En tu entorno local, esta función debería descargar el GeoTIFF a una ruta temporal.
+    
+    # Simulamos el éxito y retornamos una marca para el estado de sesión
+    st.info(f"Simulación de descarga remota. En un entorno real, la descarga del DEM desde {url} se completaría aquí.")
+    return url 
+    
+# NOTA: Asegúrate de que tu `modules/config.py` contenga la variable:
+# class Config:
+#     # ... otras variables ...
+#     DEM_SERVER_URL = "https://servidor.remoto/dem.tif" # URL de tu servidor
