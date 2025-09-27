@@ -917,7 +917,7 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
                     data_with_geom = pd.merge(data, gdf_stations_info, on=Config.STATION_NAME_COL)
                     gpd_data = gpd.GeoDataFrame(data_with_geom, geometry='geometry', crs=gdf_stations_info.crs)
                     for _, row in gpd_data.iterrows():
-                        if pd.notna(row[Config.PRECIPITATION_COL]):
+                        if pd.notna(row [Config. PRECIPITATION_COL]):
                             popup_object = generate_station_popup_html(row, df_anual_melted)
                             folium.CircleMarker(
                                 location=[row['geometry'].y, row['geometry'].x], radius=5,
