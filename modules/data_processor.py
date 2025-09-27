@@ -148,12 +148,12 @@ def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded
     df_precip_raw.columns = df_precip_raw.columns.str.lower()
 
     # Detección ROBUSTA de columnas de estación: Aquellas que son dígitos Y NO son metadatos conocidos.
-    # Usamos .isdigit() como la intención original, pero limpiamos los metadatos
     station_id_cols = [col for col in df_precip_raw.columns if col.isdigit()]
     
-    # Limpiamos las columnas de metadatos/índices conocidos
+    # Limpiamos las columnas de metadatos/índices conocidos (si el nombre es solo número, lo consideramos estación)
     existing_non_station_cols = [col for col in non_station_cols if col in df_precip_raw.columns]
-    # Usamos todas las columnas que no son metadatos conocidos como id_vars para el melt.
+    
+    # Usamos todas las columnas que no son ID de estación detectados como id_vars para el melt.
     id_vars = [col for col in df_precip_raw.columns if col not in station_id_cols]
 
     if not station_id_cols:
