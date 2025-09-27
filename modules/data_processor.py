@@ -150,15 +150,17 @@ def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded
     df_precip_raw.columns = df_precip_raw.columns.str.lower()
 
     # 2. Detección de Columnas de Datos de Precipitación (value_vars para melt)
-    # FORZAMOS LA LIMPIEZA DEL ENCABEZADO antes de la verificación .isdigit()
     
     station_id_cols = []
     for col in df_precip_raw.columns:
-        cleaned_col = col.strip()  # Limpieza adicional del encabezado
+        # LIMPIEZA EXHAUSTIVA DE ENCABEZADO antes de la verificación
+        cleaned_col = col.strip()  
+        
+        # Si la columna limpiada es puramente numérica
         if cleaned_col.isdigit():
-            # Solo incluimos columnas que sean numéricas y NO sean metadatos/índices conocidos.
+            # Y NO es una columna de metadato conocida (aunque sea numérica, como 'año' o 'mes')
             if cleaned_col not in columns_to_exclude:
-                station_id_cols.append(col) # Usamos el nombre original, no el limpiado
+                station_id_cols.append(col) 
     
     # 3. Definición de id_vars para melt (Las columnas que quedan como filas: Fecha y Metadatos)
     id_vars = [col for col in df_precip_raw.columns if col not in station_id_cols]
