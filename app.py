@@ -99,19 +99,17 @@ def main():
                all([uploaded_file_mapa, uploaded_file_precip, uploaded_zip_shapefile]):
                 
                 with st.spinner("Procesando archivos y cargando datos..."):
-                    # La función cacheada se llama con los uploaded files (que son referencias de Streamlit)
-                    gdf_stations, gdf_municipios, df_long, df_enso = load_and_process_all_data(
-                        uploaded_file_mapa, uploaded_file_precip, uploaded_zip_shapefile)
-                        
+                    # ... (código de carga de datos)
+
                 if gdf_stations is not None and df_long is not None:
-                    st.session_state.gdf_stations = gdf_stations
-                    st.session_state.gdf_municipios = gdf_municipios
-                    st.session_state.df_long = df_long
-                    st.session_state.df_enso = df_enso
+                    # ... (código que guarda los DataFrames en session_state)
                     st.session_state.data_loaded = True
-                    st.session_state.update_data_toggle = False # Desactivar la carga después de cargar
+                    
+                    # 💥 ELIMINAR O COMENTAR ESTA LÍNEA 💥
+                    # st.session_state.update_data_toggle = False # <-- ¡CAUSA EL APIException!
+                    
                     st.success("¡Datos cargados y listos!")
-                    st.rerun()
+                    st.rerun() 
                 else:
                     st.error("Hubo un error al procesar los archivos.")
     
