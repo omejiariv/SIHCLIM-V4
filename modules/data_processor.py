@@ -141,23 +141,30 @@ def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded
         
     # --- PROCESAMIENTO DE PRECIPITACIÓN (LARGO) ---
     
-    # Lista de columnas que NO son valores de estación (metadatos de fecha/índice)
-    non_station_cols = [Config.DATE_COL, Config.ENSO_ONI_COL, Config.SOI_COL, Config.IOD_COL, 'temp_sst', 'temp_media']
+    # 1. Columnas de Metadatos/Índices (para excluir del melt)
+    # Incluimos 'id_estacio' y 'nom_est' aquí para que no sean consideradas columnas de datos de precipitación
+    non_data_cols = [
+        Config.DATE_COL, Config.ENSO_ONI_COL, Config.SOI_COL, Config.IOD_COL, 
+        'temp_sst', 'temp_media', 'id', 'fecha', 'mes', 'año', 'id_estacio', 'nom_est'
+    ]
     
-    # Asegurar que las columnas están en minúsculas para la detección
     df_precip_raw.columns = df_precip_raw.columns.str.lower()
 
-    # Detección ROBUSTA de columnas de estación: Aquellas que son dígitos Y NO son metadatos conocidos.
-    station_id_cols = [col for col in df_precip_raw.columns if col.isdigit()]
+    # 2. Detección de Columnas de Datos de Precipitación (value_vars para melt)
+    # Son las que no son metadatos y son numéricas (asumiendo que las estaciones tienen IDs numéricos)
+    # y excluyendo las columnas que inician con 'unnamed' (basura de CSVs).
+    station_id_cols = [
+        col for col in df_precip_raw.columns 
+        if col not in non_data_cols and 
+           not col.startswith('unnamed') and
+           col.isdigit() # Manteniendo la intención original de usar IDs numéricos
+    ]
     
-    # Limpiamos las columnas de metadatos/índices conocidos (si el nombre es solo número, lo consideramos estación)
-    existing_non_station_cols = [col for col in non_station_cols if col in df_precip_raw.columns]
-    
-    # Usamos todas las columnas que no son ID de estación detectados como id_vars para el melt.
+    # 3. Definición de id_vars para melt (Las columnas que quedan como filas: Fecha y Metadatos)
     id_vars = [col for col in df_precip_raw.columns if col not in station_id_cols]
 
     if not station_id_cols:
-        st.error("No se encontraron columnas de estación (ej: '12345') en el archivo de precipitación mensual.")
+        st.error("No se encontraron columnas de estación (ej: '12345') en el archivo de precipitación mensual. Verifique que los IDs de estación sean SOLO números.")
         return None, None, None, None
         
     # Melt (Despivotar) el DataFrame
@@ -181,14 +188,16 @@ def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded
     df_long[Config.MONTH_COL] = df_long[Config.DATE_COL].dt.month
     
     # Mapping station IDs to names
-    id_estacion_col_name = next((col for col in gdf_stations.columns if 'id_estacio' in col), None)
-    if id_estacion_col_name is None:
+    # Usamos 'id_estacio' como la columna clave para el merge
+    id_estacion_col_name = 'id_estacio' 
+    if id_estacion_col_name not in gdf_stations.columns:
         st.error("No se encontró la columna 'id_estacio' en el archivo de estaciones.")
         return None, None, None, None
         
     gdf_stations[id_estacion_col_name] = gdf_stations[id_estacion_col_name].astype(str).str.strip()
     df_long['id_estacion'] = df_long['id_estacion'].astype(str).str.strip()
     
+    # Ahora mapeamos desde 'id_estacio' a 'nom_est' (que es Config.STATION_NAME_COL)
     station_mapping = gdf_stations.set_index(id_estacion_col_name)[Config.STATION_NAME_COL].to_dict()
     df_long[Config.STATION_NAME_COL] = df_long['id_estacion'].map(station_mapping)
     df_long.dropna(subset=[Config.STATION_NAME_COL], inplace=True)
