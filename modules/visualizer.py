@@ -806,9 +806,9 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
                             
                             colormap = cm.LinearColormap(colors=plt.cm.viridis.colors, vmin=min_val, vmax=max_val)
                             
-                            for _, row in df_map_data.iterrows():
-                                popup_object = generate_station_popup_html(row, df_anual_melted, 
-                                                                           include_chart=True, 
+                            for row in df_map_data.iterrows():
+                                popup_object = generate_station_popup_html(row, df_anual_melted,
+                                                                           include_chart=False, 
                                                                            df_monthly_filtered=df_monthly_filtered)
                                 folium.CircleMarker(
                                     location=[row['geometry'].y, row['geometry'].x], radius=5,
