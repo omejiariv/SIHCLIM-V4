@@ -29,7 +29,7 @@ def parse_spanish_dates(date_series):
     return pd.to_datetime(date_series_str, format='%b-%y', errors='coerce')
 
 @st.cache_data
-def load_csv_data(file_uploader_object, sep=",", lower_case=True):
+def load_csv_data(file_uploader_object, sep=";", lower_case=True): # <-- ¡DELIMITADOR CORREGIDO A PUNTO Y COMA!
     if file_uploader_object is None:
         return None
     try:
@@ -44,7 +44,8 @@ def load_csv_data(file_uploader_object, sep=",", lower_case=True):
     encodings_to_try = ['utf-8', 'latin1', 'cp1252', 'iso-8859-1']
     for encoding in encodings_to_try:
         try:
-            df = pd.read_csv(io.BytesIO(content), sep=sep, encoding=encoding)
+            # Usamos el delimitador de punto y coma (sep=";")
+            df = pd.read_csv(io.BytesIO(content), sep=sep, encoding=encoding) 
             
             # Limpieza AGRESIVA de encabezados
             df.columns = df.columns.str.strip().str.replace(';', ",", regex=False)
@@ -152,22 +153,22 @@ def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded
     
     df_precip_raw.columns = df_precip_raw.columns.str.lower()
     
-    # Detección ROBUSTA: Asumimos que las columnas de datos de precipitación comienzan en la posición 11 (columna 12).
-    # Esta es la única forma de sortear los problemas de formato de encabezado.
+    # Lista de Columnas de Metadatos/Índices (para excluir del melt)
+    columns_to_exclude = [
+        Config.DATE_COL, Config.ENSO_ONI_COL, Config.SOI_COL, Config.IOD_COL, 
+        'temp_sst', 'temp_media', 'id', 'fecha', 'mes', 'año', 'id_estacio', 'nom_est', 'unnamed',
+        'fecha_mes_año', 'enso_año', 'enso_mes' 
+    ]
     
-    # Verificamos si el DataFrame tiene al menos 12 columnas.
-    if len(df_precip_raw.columns) < 12:
-        st.error("El archivo de precipitación tiene menos de 12 columnas, estructura mínima no cumplida.")
-        return None, None, None, None
-        
-    # Columna 12 (índice 11) en adelante son datos de precipitación
-    potential_station_cols = df_precip_raw.columns[11:].tolist()
-    
-    # Filtramos para asegurar que sean IDs numéricos (si no son numéricos, son basura o columnas vacías)
-    station_id_cols = [col for col in potential_station_cols if col.isdigit()]
+    # Detección de Columnas de Estación (value_vars para melt)
+    # Buscamos encabezados que sean puramente numéricos (después de la limpieza)
+    station_id_cols = [
+        col for col in df_precip_raw.columns 
+        if col.strip().isdigit() and col not in columns_to_exclude
+    ]
 
     if not station_id_cols:
-        st.error("Error: No se pudieron identificar las columnas de estación. El problema es la codificación/formato de los encabezados.")
+        st.error("Error: No se pudieron identificar las columnas de estación. Verifique que los IDs de estación sean SOLO números.")
         return None, None, None, None
         
     # Las columnas de identificación (id_vars) son todas las que NO son de estación
@@ -239,38 +240,28 @@ def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded
 # --- FUNCIONES PARA DEM ---
 
 def extract_elevation_from_dem(gdf_stations, dem_data_source):
-    """
-    Extrae la elevación de un DEM para cada estación.
-    
-    dem_data_source puede ser un Streamlit UploadedFile o una ruta de archivo cacheada.
-    """
+    """Extrae la elevación de un DEM para cada estación."""
     if dem_data_source is None:
         return gdf_stations
 
-    # Determinar el objeto de archivo/ruta para rasterio
     file_object = dem_data_source 
     if hasattr(dem_data_source, 'name') and dem_data_source.name.lower().endswith('.tif'):
-        # Si es un UploadedFile, rasterio puede usarlo directamente o su ruta
         try:
-            # Intentar usar el valor del UploadedFile como un buffer de memoria
             file_object = io.BytesIO(dem_data_source.getvalue())
         except:
-            pass # Si falla, se usa el objeto original (puede ser la ruta temporal)
+            pass
 
     try:
         with rasterio.open(file_object) as dem:
             coords = [(point.x, point.y) for point in gdf_stations.geometry]
             elevations = [val[0] for val in dem.sample(coords)]
-            
             elevations = np.array(elevations)
-            # Reemplazar valores no válidos (e.g., -9999, NODATA) por NaN
             elevations[elevations < -1000] = np.nan 
             
-            gdf_stations[Config.ALTITUDE_COL] = elevations # Usar Config.ALTITUDE_COL para la columna
+            gdf_stations[Config.ALTITUDE_COL] = elevations
         st.success("Elevación extraída del DEM para todas las estaciones.")
     except Exception as e:
         st.error(f"Error al procesar el archivo DEM. Asegúrese de que es un GeoTIFF válido y el CRS coincide: {e}")
-        # Si falla, restaurar la columna original si existía
         st.session_state[f'original_{Config.ALTITUDE_COL}'] = st.session_state.get(f'original_{Config.ALTITUDE_COL}', None)
         if Config.ALTITUDE_COL in gdf_stations.columns and st.session_state[f'original_{Config.ALTITUDE_COL}'] is not None:
              gdf_stations[Config.ALTITUDE_COL] = st.session_state[f'original_{Config.ALTITUDE_COL}']
@@ -278,13 +269,9 @@ def extract_elevation_from_dem(gdf_stations, dem_data_source):
 
 @st.cache_resource
 def download_and_load_remote_dem(url):
-    """
-    Simula la descarga de un DEM remoto. En un entorno real, esta función
-    descargaría un GeoTIFF a un archivo temporal y devolvería su ruta.
-    """
+    """Simula la descarga de un DEM remoto."""
     if not url:
         raise ValueError("La URL del servidor DEM no está configurada.")
         
-    # --- SIMULACIÓN (Asume que Config.DEM_SERVER_URL es una marca) ---
     st.info(f"Simulación de descarga remota. En un entorno real, se usaría un archivo temporal. Usando '{url}' como marcador.")
     return url
