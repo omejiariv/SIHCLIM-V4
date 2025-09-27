@@ -98,20 +98,29 @@ def main():
             if st.button("Procesar y Almacenar Datos", key='process_data_button') and \
                all([uploaded_file_mapa, uploaded_file_precip, uploaded_zip_shapefile]):
                 
+                # LÍNEA 101: INICIO DEL CONTEXTO 'WITH'
                 with st.spinner("Procesando archivos y cargando datos..."):
-                    # ... (código de carga de datos)
-
-                if gdf_stations is not None and df_long is not None:
-                    # ... (código que guarda los DataFrames en session_state)
-                    st.session_state.data_loaded = True
-                    
-                    # 💥 ELIMINAR O COMENTAR ESTA LÍNEA 💥
-                    # st.session_state.update_data_toggle = False # <-- ¡CAUSA EL APIException!
-                    
-                    st.success("¡Datos cargados y listos!")
-                    st.rerun() 
-                else:
-                    st.error("Hubo un error al procesar los archivos.")
+                    # Esta línea y la siguiente DEBEN tener 4 espacios más de sangría que 'with'
+                    gdf_stations, gdf_municipios, df_long, df_enso = load_and_process_all_data(
+                        uploaded_file_mapa, uploaded_file_precip, uploaded_zip_shapefile)
+                        
+                    # LÍNEA 104: INICIO DEL CONTEXTO 'IF' (DEBE TENER LA MISMA SANGRÍA QUE ARRIBA)
+                    if gdf_stations is not None and df_long is not None:
+                        # Todo este bloque debe tener 8 espacios de sangría
+                        st.session_state.gdf_stations = gdf_stations
+                        st.session_state.gdf_municipios = gdf_municipios
+                        st.session_state.df_long = df_long
+                        st.session_state.df_enso = df_enso
+                        st.session_state.data_loaded = True
+                        
+                        # 💥 NO ASIGNAMOS EL WIDGET DIRECTAMENTE 💥
+                        # st.session_state.update_data_toggle = False # COMENTAR/ELIMINAR ESTA LÍNEA
+                        
+                        st.success("¡Datos cargados y listos!")
+                        st.rerun() 
+                    else:
+                        # Este 'else' debe estar sangrado al nivel del 'if' (4 espacios más que 'with')
+                        st.error("Hubo un error al procesar los archivos.")
     
     # Mensaje de estado
     if st.session_state.get('data_loaded', False) and st.session_state.get('df_long') is not None:
