@@ -141,38 +141,60 @@ def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded
         
     # --- PROCESAMIENTO DE PRECIPITACIÓN (LARGO) ---
     
-    # 1. Lista de Columnas de Metadatos/Índices (para excluir del melt)
+    # 1. Definición de Columnas de Metadatos (columnas que NO son precipitación)
+    # Lista de TODAS las columnas de metadatos e índices que deben EXCLUIRSE del melt.
+    # Incluimos 'id_estacio' y 'nom_est' para ser exhaustivos.
     columns_to_exclude = [
         Config.DATE_COL, Config.ENSO_ONI_COL, Config.SOI_COL, Config.IOD_COL, 
-        'temp_sst', 'temp_media', 'id', 'fecha', 'mes', 'año', 'id_estacio', 'nom_est', 'unnamed'
+        'temp_sst', 'temp_media', 'id', 'fecha', 'mes', 'año', 'id_estacio', 'nom_est', 
+        'unnamed', 'fecha_mes_año', 'enso_año', 'enso_mes' # Columnas adicionales vistas en el CSV
     ]
     
     df_precip_raw.columns = df_precip_raw.columns.str.lower()
-
-    # 2. Detección de Columnas de Datos de Precipitación (value_vars para melt)
     
-    station_id_cols = []
-    for col in df_precip_raw.columns:
-        # LIMPIEZA EXHAUSTIVA DE ENCABEZADO antes de la verificación
-        cleaned_col = col.strip()  
-        
-        # Si la columna limpiada es puramente numérica
-        if cleaned_col.isdigit():
-            # Y NO es una columna de metadato conocida (aunque sea numérica, como 'año' o 'mes')
-            if cleaned_col not in columns_to_exclude:
-                station_id_cols.append(col) 
+    # 2. Detección de Columnas de Datos de Precipitación (value_vars)
+    # HACK ROBUSTO: Asumimos que cualquier columna que NO es un metadato conocido es una estación.
     
-    # 3. Definición de id_vars para melt (Las columnas que quedan como filas: Fecha y Metadatos)
-    id_vars = [col for col in df_precip_raw.columns if col not in station_id_cols]
+    station_id_cols = [
+        col for col in df_precip_raw.columns 
+        if col not in columns_to_exclude and 
+           not col.startswith('unnamed')
+    ]
 
+    # ¡Filtro crítico! Solo si las columnas son numéricas (por si hay basura al final)
+    station_id_cols = [col for col in station_id_cols if col.isdigit()]
+    
+    # Si después de todo, sigue vacío, forzamos una detección por posición
     if not station_id_cols:
-        st.error("No se encontraron columnas de estación (ej: '12345') en el archivo de precipitación mensual. Verifique que los IDs de estación sean SOLO números.")
+         st.warning("Advertencia: Detección estricta falló. Intentando detección por posición.")
+         
+         # Identificamos el índice de la última columna de metadatos ('iod' o 'temp_media')
+         # Usaremos la lista de metadatos y la posición de la última columna conocida
+         known_cols_in_data = [col for col in df_precip_raw.columns if col in ['id', 'fecha_mes_año', 'iod']]
+         
+         if known_cols_in_data:
+             last_known_col = known_cols_in_data[-1]
+             last_index = df_precip_raw.columns.get_loc(last_known_col)
+             
+             # Las estaciones son el resto de las columnas
+             potential_station_cols = df_precip_raw.columns[last_index + 1:].tolist()
+             
+             # Aplicamos isdigit solo a las potenciales estaciones
+             station_id_cols = [col for col in potential_station_cols if col.isdigit()]
+
+
+    # 3. Verificación final y retorno de error
+    if not station_id_cols:
+        st.error("Error definitivo: No se pudieron identificar columnas de estación en el archivo de precipitación mensual.")
         return None, None, None, None
         
+    # Las columnas de identificación (id_vars) para el melt
+    id_vars = [col for col in df_precip_raw.columns if col not in station_id_cols]
+
     # Melt (Despivotar) el DataFrame
     df_long = df_precip_raw.melt(id_vars=id_vars, value_vars=station_id_cols,
                                  var_name='id_estacion', value_name=Config.PRECIPITATION_COL)
-                                 
+                             
     cols_to_numeric = [Config.ENSO_ONI_COL, 'temp_sst', 'temp_media',
                        Config.PRECIPITATION_COL, Config.SOI_COL, Config.IOD_COL]
                        
