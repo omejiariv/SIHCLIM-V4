@@ -24,7 +24,7 @@ class Config:
     DATE_COL = 'fecha_mes_año'
     PRECIPITATION_COL = 'precipitation'
     STATION_NAME_COL = 'nom_est'
-    ALTITUDE_COL = 'altitud'
+    ALTITUDE_COL = 'alt_est'
     LATITUDE_COL = 'latitud_wgs84'
     LONGITUDE_COL = 'longitud_wgs84'
     MUNICIPALITY_COL = 'municipio'
