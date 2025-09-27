@@ -9,8 +9,10 @@ import numpy as np
 import warnings
 
 # --- Importaciones de Módulos ---
+# Asegúrate de que tu data_processor tenga las funciones extract_elevation_from_dem 
+# y, si la usas, download_and_load_remote_dem
 from modules.config import Config
-from modules.data_processor import load_and_process_all_data, complete_series, extract_elevation_from_dem
+from modules.data_processor import load_and_process_all_data, complete_series, extract_elevation_from_dem, download_and_load_remote_dem 
 from modules.visualizer import (
     display_welcome_tab, display_spatial_distribution_tab, display_graphs_tab,
     display_advanced_maps_tab, display_anomalies_tab, display_drought_analysis_tab,
@@ -21,6 +23,37 @@ from modules.visualizer import (
 # Desactivar Warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
+
+# Función para sincronizar la selección de todas las estaciones
+def sync_station_selection():
+    options = sorted(st.session_state.get('filtered_station_options', []))
+    if st.session_state.get('select_all_checkbox', True):
+        st.session_state.station_multiselect = options
+    else:
+        st.session_state.station_multiselect = []
+
+# Función para aplicar filtros a las estaciones (movida fuera de main para claridad)
+def apply_filters_to_stations(df, min_perc, altitudes, regions, municipios, celdas):
+    stations_filtered = df.copy()
+    if Config.PERCENTAGE_COL in stations_filtered.columns:
+        if stations_filtered[Config.PERCENTAGE_COL].dtype == 'object':
+            stations_filtered[Config.PERCENTAGE_COL] = \
+                pd.to_numeric(stations_filtered[Config.PERCENTAGE_COL].astype(str).str.replace(',', '.', regex=False),
+                              errors='coerce').fillna(0)
+        stations_filtered = stations_filtered[stations_filtered[Config.PERCENTAGE_COL] >= min_perc]
+    if altitudes:
+        conditions = []
+        for r in altitudes:
+            if r == '0-500': conditions.append((stations_filtered[Config.ALTITUDE_COL] >= 0) & (stations_filtered[Config.ALTITUDE_COL] <= 500))
+            elif r == '500-1000': conditions.append((stations_filtered[Config.ALTITUDE_COL] > 500) & (stations_filtered[Config.ALTITUDE_COL] <= 1000))
+            elif r == '1000-2000': conditions.append((stations_filtered[Config.ALTITUDE_COL] > 1000) & (stations_filtered[Config.ALTITUDE_COL] <= 2000))
+            elif r == '2000-3000': conditions.append((stations_filtered[Config.ALTITUDE_COL] > 2000) & (stations_filtered[Config.ALTITUDE_COL] <= 3000))
+            elif r == '>3000': conditions.append(stations_filtered[Config.ALTITUDE_COL] > 3000)
+        if conditions: stations_filtered = stations_filtered[pd.concat(conditions, axis=1).any(axis=1)]
+    if regions: stations_filtered = stations_filtered[stations_filtered[Config.REGION_COL].isin(regions)]
+    if municipios: stations_filtered = stations_filtered[stations_filtered[Config.MUNICIPALITY_COL].isin(municipios)]
+    if celdas: stations_filtered = stations_filtered[stations_filtered[Config.CELL_COL].isin(celdas)]
+    return stations_filtered
 
 def main():
     st.set_page_config(layout="wide", page_title=Config.APP_TITLE)
@@ -47,82 +80,103 @@ def main():
 
     st.sidebar.header("Panel de Control")
 
-    with st.sidebar.expander("**Cargar Archivos**", expanded=not st.session_state.get('data_loaded', False)):
-        uploaded_file_mapa = st.file_uploader("1. Cargar archivo de estaciones (CSV)", type="csv")
-        uploaded_file_precip = st.file_uploader("2. Cargar archivo de precipitación (CSV)", type="csv")
-        uploaded_zip_shapefile = st.file_uploader("3. Cargar shapefile de municipios (.zip)", type="zip")
+    # --- 1. NUEVA LÓGICA DE CARGA PERSISTENTE ---
+    
+    # Checkbox central para activar la carga/actualización
+    update_data_toggle = st.sidebar.checkbox(
+        "Activar Carga/Actualización de Archivos Base", 
+        value=not st.session_state.get('data_loaded', False), 
+        key='update_data_toggle'
+    )
 
-        if not st.session_state.get('data_loaded', False) and all([uploaded_file_mapa, uploaded_file_precip, uploaded_zip_shapefile]):
-            with st.spinner("Procesando archivos y cargando datos..."):
-                gdf_stations, gdf_municipios, df_long, df_enso = load_and_process_all_data(
-                    uploaded_file_mapa, uploaded_file_precip, uploaded_zip_shapefile)
-            if gdf_stations is not None and df_long is not None:
-                st.session_state.gdf_stations = gdf_stations
-                st.session_state.gdf_municipios = gdf_municipios
-                st.session_state.df_long = df_long
-                st.session_state.df_enso = df_enso
-                st.session_state.data_loaded = True
-                st.rerun()
-            else:
-                st.error("Hubo un error al procesar los archivos.")
+    if update_data_toggle:
+        with st.sidebar.expander("**Subir/Actualizar Archivos Base**", expanded=True):
+            uploaded_file_mapa = st.file_uploader("1. Cargar archivo de estaciones (CSV)", type="csv", key='uploaded_file_mapa')
+            uploaded_file_precip = st.file_uploader("2. Cargar archivo de precipitación (CSV)", type="csv", key='uploaded_file_precip')
+            uploaded_zip_shapefile = st.file_uploader("3. Cargar shapefile de municipios (.zip)", type="zip", key='uploaded_zip_shapefile')
 
-        if st.button("Recargar Datos"):
+            if st.button("Procesar y Almacenar Datos", key='process_data_button') and \
+               all([uploaded_file_mapa, uploaded_file_precip, uploaded_zip_shapefile]):
+                
+                with st.spinner("Procesando archivos y cargando datos..."):
+                    # La función cacheada se llama con los uploaded files (que son referencias de Streamlit)
+                    gdf_stations, gdf_municipios, df_long, df_enso = load_and_process_all_data(
+                        uploaded_file_mapa, uploaded_file_precip, uploaded_zip_shapefile)
+                        
+                if gdf_stations is not None and df_long is not None:
+                    st.session_state.gdf_stations = gdf_stations
+                    st.session_state.gdf_municipios = gdf_municipios
+                    st.session_state.df_long = df_long
+                    st.session_state.df_enso = df_enso
+                    st.session_state.data_loaded = True
+                    st.session_state.update_data_toggle = False # Desactivar la carga después de cargar
+                    st.success("¡Datos cargados y listos!")
+                    st.rerun()
+                else:
+                    st.error("Hubo un error al procesar los archivos.")
+    
+    # Mensaje de estado
+    if st.session_state.get('data_loaded', False) and st.session_state.get('df_long') is not None:
+        st.sidebar.success("✅ Datos base cargados y persistentes.")
+        
+        # Botón de recarga general
+        if st.sidebar.button("Limpiar Caché y Recargar"):
             st.cache_data.clear()
+            st.cache_resource.clear()
             keys_to_clear = list(st.session_state.keys())
             for key in keys_to_clear:
                 del st.session_state[key]
             st.rerun()
-            
-    if st.session_state.get('data_loaded', False) and st.session_state.get('df_long') is not None:
-        
-        with st.sidebar.expander("Opciones de Modelo Digital de Elevación (DEM)"):
-            dem_option = st.radio(
-                "Seleccionar fuente del DEM para Kriging con Deriva Externa:",
-                ("No usar DEM", "Subir DEM propio"),
-                key="dem_option",
-                help="El DEM mejora la interpolación al considerar la elevación como una variable."
-            )
-            uploaded_dem_file = None
-            if dem_option == "Subir DEM propio":
-                uploaded_dem_file = st.file_uploader(
-                    "Cargar archivo DEM en formato GeoTIFF (.tif)",
-                    type=["tif", "tiff"]
-                )
-        
-        if uploaded_dem_file:
-            st.session_state.gdf_stations = extract_elevation_from_dem(
-                st.session_state.gdf_stations,
-                uploaded_dem_file
-            )
 
-        def apply_filters_to_stations(df, min_perc, altitudes, regions, municipios, celdas):
-            stations_filtered = df.copy()
-            if Config.PERCENTAGE_COL in stations_filtered.columns:
-                if stations_filtered[Config.PERCENTAGE_COL].dtype == 'object':
-                    stations_filtered[Config.PERCENTAGE_COL] = \
-                        pd.to_numeric(stations_filtered[Config.PERCENTAGE_COL].astype(str).str.replace(',', '.', regex=False),
-                                      errors='coerce').fillna(0)
-                stations_filtered = stations_filtered[stations_filtered[Config.PERCENTAGE_COL] >= min_perc]
-            if altitudes:
-                conditions = []
-                for r in altitudes:
-                    if r == '0-500': conditions.append((stations_filtered[Config.ALTITUDE_COL] >= 0) & (stations_filtered[Config.ALTITUDE_COL] <= 500))
-                    elif r == '500-1000': conditions.append((stations_filtered[Config.ALTITUDE_COL] > 500) & (stations_filtered[Config.ALTITUDE_COL] <= 1000))
-                    elif r == '1000-2000': conditions.append((stations_filtered[Config.ALTITUDE_COL] > 1000) & (stations_filtered[Config.ALTITUDE_COL] <= 2000))
-                    elif r == '2000-3000': conditions.append((stations_filtered[Config.ALTITUDE_COL] > 2000) & (stations_filtered[Config.ALTITUDE_COL] <= 3000))
-                    elif r == '>3000': conditions.append(stations_filtered[Config.ALTITUDE_COL] > 3000)
-                if conditions: stations_filtered = stations_filtered[pd.concat(conditions, axis=1).any(axis=1)]
-            if regions: stations_filtered = stations_filtered[stations_filtered[Config.REGION_COL].isin(regions)]
-            if municipios: stations_filtered = stations_filtered[stations_filtered[Config.MUNICIPALITY_COL].isin(municipios)]
-            if celdas: stations_filtered = stations_filtered[stations_filtered[Config.CELL_COL].isin(celdas)]
-            return stations_filtered
-        
-        def sync_station_selection():
-            options = sorted(st.session_state.get('filtered_station_options', []))
-            if st.session_state.get('select_all_checkbox', True):
-                st.session_state.station_multiselect = options
-            else:
-                st.session_state.station_multiselect = []
+        # --- 2. NUEVA LÓGICA DE DEM ---
+        with st.sidebar.expander("Opciones de Modelo Digital de Elevación (DEM)", expanded=True):
+            
+            dem_source = st.radio(
+                "Fuente de DEM para KED (Kriging):",
+                ("No usar DEM", "Subir DEM propio (GeoTIFF)", "Cargar DEM desde Servidor"),
+                key="dem_source"
+            )
+            
+            # Inicializar dem_raster en el estado de sesión
+            if 'dem_raster' not in st.session_state:
+                st.session_state.dem_raster = None
+
+            uploaded_dem_file = None
+            if dem_source == "Subir DEM propio (GeoTIFF)":
+                uploaded_dem_file = st.file_uploader(
+                    "Cargar GeoTIFF (.tif) para elevación",
+                    type=["tif", "tiff"],
+                    key="dem_uploader"
+                )
+            
+            if dem_source == "Cargar DEM desde Servidor":
+                if st.button("Descargar y Usar DEM Remoto"):
+                    with st.spinner("Descargando DEM del servidor..."):
+                        try:
+                            # Asume que Config.DEM_SERVER_URL contiene la URL o path necesario
+                            st.session_state.dem_raster = download_and_load_remote_dem(Config.DEM_SERVER_URL)
+                            st.success("DEM remoto cargado y listo para KED.")
+                        except Exception as e:
+                            st.error(f"Error al cargar DEM remoto: {e}. Verifique la URL en Config.py")
+                            st.session_state.dem_raster = None
+
+            # Procesamiento del DEM (si se subió uno local o se cargó remoto)
+            if dem_source == "No usar DEM":
+                st.session_state.dem_raster = None # Asegurar que es None si el usuario elige no usarlo
+
+            if uploaded_dem_file or st.session_state.get('dem_raster') is not None:
+                dem_data = uploaded_dem_file if uploaded_dem_file else st.session_state.dem_raster
+                
+                # Asumimos que extract_elevation_from_dem maneja tanto un uploaded_file como una matriz/ruta cacheada.
+                st.session_state.gdf_stations = extract_elevation_from_dem(
+                    st.session_state.gdf_stations.copy(),
+                    dem_data
+                )
+                st.sidebar.success("Altitud de estaciones actualizada usando el DEM.")
+
+        # --- FIN LÓGICA DE DEM ---
+
+        # --- LÓGICA DE FILTROS Y PROCESAMIENTO ---
 
         with st.sidebar.expander("**1. Filtros Geográficos y de Datos**", expanded=True):
             min_data_perc = st.slider("Filtrar por % de datos mínimo:", 0, 100,
@@ -134,7 +188,7 @@ def main():
             
             regions_list = sorted(st.session_state.gdf_stations[Config.REGION_COL].dropna().unique())
             selected_regions = st.multiselect('Filtrar por Depto/Región', options=regions_list,
-                                              key='regions_multiselect')
+                                                key='regions_multiselect')
             
             temp_gdf_for_mun = st.session_state.gdf_stations.copy()
             if selected_regions:
@@ -143,7 +197,7 @@ def main():
             
             municipios_list = sorted(temp_gdf_for_mun[Config.MUNICIPALITY_COL].dropna().unique())
             selected_municipios = st.multiselect('Filtrar por Municipio', options=municipios_list,
-                                                 key='municipios_multiselect')
+                                                key='municipios_multiselect')
             
             temp_gdf_for_celdas = temp_gdf_for_mun.copy()
             if selected_municipios:
@@ -152,9 +206,9 @@ def main():
             
             celdas_list = sorted(temp_gdf_for_celdas[Config.CELL_COL].dropna().unique())
             selected_celdas = st.multiselect('Filtrar por Celda_XY', options=celdas_list,
-                                             key='celdas_multiselect')
+                                                key='celdas_multiselect')
 
-            if st.button("🔄 Limpiar Filtros"):
+            if st.button("🔄 Limpiar Filtros Geográficos"):
                 keys_to_clear = ['min_data_perc_slider', 'altitude_multiselect', 'regions_multiselect',
                                  'municipios_multiselect', 'celdas_multiselect', 'station_multiselect',
                                  'select_all_checkbox', 'year_range', 'meses_nombres']
@@ -163,9 +217,10 @@ def main():
                         del st.session_state[key]
                 st.rerun()
 
+        # Re-aplicar filtros a gdf_stations base
         gdf_filtered = apply_filters_to_stations(st.session_state.gdf_stations, min_data_perc,
-                                                 selected_altitudes, selected_regions, selected_municipios,
-                                                 selected_celdas)
+                                                    selected_altitudes, selected_regions, selected_municipios,
+                                                    selected_celdas)
 
         with st.sidebar.expander("**2. Selección de Estaciones y Período**", expanded=True):
             stations_options = sorted(gdf_filtered[Config.STATION_NAME_COL].unique())
@@ -188,18 +243,21 @@ def main():
                 key='station_multiselect'
             )
 
-            years_with_data = sorted(st.session_state.df_long[Config.YEAR_COL].unique())
+            years_with_data = sorted(st.session_state.df_long[Config.YEAR_COL].dropna().unique())
+            if not years_with_data:
+                 st.error("No hay datos de año válidos en el archivo de precipitación.")
+                 return
+                 
             year_range_default = (min(years_with_data), max(years_with_data))
             
             year_range = st.slider("Seleccionar Rango de Años", min_value=min(years_with_data),
-                                   max_value=max(years_with_data), value=st.session_state.get('year_range',
-                                                                                               year_range_default),
+                                   max_value=max(years_with_data), value=st.session_state.get('year_range', year_range_default),
                                    key='year_range')
 
             meses_dict = {'Enero': 1, 'Febrero': 2, 'Marzo': 3, 'Abril': 4, 'Mayo': 5, 'Junio': 6, 'Julio': 7,
                           'Agosto': 8, 'Septiembre': 9, 'Octubre': 10, 'Noviembre': 11, 'Diciembre': 12}
             meses_nombres = st.multiselect("Seleccionar Meses", list(meses_dict.keys()),
-                                           default=list(meses_dict.keys()), key='meses_nombres')
+                                            default=list(meses_dict.keys()), key='meses_nombres')
             meses_numeros = [meses_dict[m] for m in meses_nombres]
 
         with st.sidebar.expander("Opciones de Preprocesamiento de Datos"):
@@ -215,6 +273,7 @@ def main():
         
         st.session_state.meses_numeros = meses_numeros
 
+        # Aplicar el modo de análisis (interpolación o no)
         if st.session_state.analysis_mode == "Completar series (interpolación)":
             df_monthly_processed = complete_series(st.session_state.df_long.copy())
         else:
@@ -222,6 +281,7 @@ def main():
             
         st.session_state.df_monthly_processed = df_monthly_processed
 
+        # Filtrar datos mensuales
         df_monthly_filtered = df_monthly_processed[
             (df_monthly_processed[Config.STATION_NAME_COL].isin(stations_for_analysis)) &
             (df_monthly_processed[Config.DATE_COL].dt.year >= year_range[0]) &
@@ -229,12 +289,14 @@ def main():
             (df_monthly_processed[Config.DATE_COL].dt.month.isin(meses_numeros))
         ].copy()
 
+        # Filtrar datos anuales para agregación
         annual_data_filtered = st.session_state.df_long[
             (st.session_state.df_long[Config.STATION_NAME_COL].isin(stations_for_analysis)) &
             (st.session_state.df_long[Config.YEAR_COL] >= year_range[0]) &
             (st.session_state.df_long[Config.YEAR_COL] <= year_range[1])
         ].copy()
 
+        # Aplicar exclusión de NaN/Ceros a los datos filtrados
         if st.session_state.get('exclude_na', False):
             df_monthly_filtered.dropna(subset=[Config.PRECIPITATION_COL], inplace=True)
             annual_data_filtered.dropna(subset=[Config.PRECIPITATION_COL], inplace=True)
@@ -244,8 +306,9 @@ def main():
             annual_data_filtered = \
                 annual_data_filtered[annual_data_filtered[Config.PRECIPITATION_COL] > 0]
 
+        # Agregación anual (Mantener la lógica de 10 meses válidos)
         annual_agg = annual_data_filtered.groupby([Config.STATION_NAME_COL,
-                                                   Config.YEAR_COL]).agg(
+                                                     Config.YEAR_COL]).agg(
             precipitation_sum=(Config.PRECIPITATION_COL, 'sum'),
             meses_validos=(Config.PRECIPITATION_COL, 'count')
         ).reset_index()
@@ -254,6 +317,7 @@ def main():
         df_anual_melted = annual_agg.rename(columns={'precipitation_sum':
                                                      Config.PRECIPITATION_COL})
 
+        # --- CONTENIDO PRINCIPAL (TABS) ---
         tab_names = [
             "Bienvenida", "Distribución Espacial", "Gráficos", "Mapas Avanzados",
             "Análisis de Anomalías", "Análisis de extremos hid", "Estadísticas",
@@ -295,8 +359,9 @@ def main():
             display_station_table_tab(gdf_filtered, df_anual_melted, stations_for_analysis)
 
     else:
+        # Mensaje si los datos base no están cargados
         display_welcome_tab()
-        st.info("Para comenzar, por favor cargue los 3 archivos requeridos en el panel de la izquierda.")
+        st.info("Para comenzar, active 'Carga/Actualización de Archivos Base' y suba los 3 archivos requeridos en el panel de la izquierda.")
 
 if __name__ == "__main__":
     main()
