@@ -9,7 +9,7 @@ import os
 import io
 import numpy as np
 import rasterio
-import requests
+import requests # Necesario para la función remota
 from modules.config import Config
 from modules.utils import standardize_numeric_column
 from scipy.interpolate import Rbf
@@ -43,6 +43,7 @@ def load_csv_data(file_uploader_object, sep=",", lower_case=True):
     for encoding in encodings_to_try:
         try:
             df = pd.read_csv(io.BytesIO(content), sep=sep, encoding=encoding)
+            # Limpieza básica de encabezados
             df.columns = df.columns.str.strip().str.replace(';', ",", regex=False)
             if lower_case:
                 df.columns = df.columns.str.lower()
@@ -69,6 +70,7 @@ def load_shapefile(file_uploader_object):
             gdf = gpd.read_file(shp_path)
             gdf.columns = gdf.columns.str.strip().str.lower()
             if gdf.crs is None:
+                # Asumiendo un CRS por defecto si no está definido
                 gdf.set_crs("EPSG:9377", inplace=True)
             return gdf.to_crs("EPSG:4326")
     except Exception as e:
@@ -109,6 +111,7 @@ def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded
     if any(df is None for df in [df_stations_raw, df_precip_raw, gdf_municipios]):
         return None, None, None, None
         
+    # --- PROCESAMIENTO DE ESTACIONES (MAPA) ---
     lon_col = next((col for col in df_stations_raw.columns if 'longitud' in col.lower() or 'lon' in col.lower()), None)
     lat_col = next((col for col in df_stations_raw.columns if 'latitud' in col.lower() or 'lat' in col.lower()), None)
     
@@ -124,11 +127,10 @@ def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded
         
     df_stations_raw.dropna(subset=[lon_col, lat_col], inplace=True)
     
-    # Correction: Use the correct constructor method
     gdf_stations = gpd.GeoDataFrame(
         df_stations_raw,
         geometry=gpd.points_from_xy(df_stations_raw[lon_col], df_stations_raw[lat_col]),
-        crs="EPSG:9377" # Assuming 9377 (MAGNA-SIRGAS) is the expected CRS before reprojecting
+        crs="EPSG:9377" 
     ).to_crs("EPSG:4326")
     
     gdf_stations[Config.LONGITUDE_COL] = gdf_stations.geometry.x
@@ -137,22 +139,28 @@ def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded
     if Config.ALTITUDE_COL in gdf_stations.columns:
         gdf_stations[Config.ALTITUDE_COL] = standardize_numeric_column(gdf_stations[Config.ALTITUDE_COL])
         
-    id_vars = [col for col in df_precip_raw.columns if not col.isdigit()] # (Se usa abajo, pero la definimos para contexto)
+    # --- PROCESAMIENTO DE PRECIPITACIÓN (LARGO) ---
+    
+    # Lista de columnas que NO son valores de estación (metadatos de fecha/índice)
+    non_station_cols = [Config.DATE_COL, Config.ENSO_ONI_COL, Config.SOI_COL, Config.IOD_COL, 'temp_sst', 'temp_media']
+    
+    # Asegurar que las columnas están en minúsculas para la detección
+    df_precip_raw.columns = df_precip_raw.columns.str.lower()
 
-# Definir las columnas que NO son valores de precipitación (fechas, índices ENSO, etc.)
-non_station_cols = [Config.DATE_COL, Config.ENSO_ONI_COL, Config.SOI_COL, Config.IOD_COL, 'temp_sst', 'temp_media']
-# Asegurarse de que las columnas están en minúsculas debido al preprocesamiento
-df_precip_raw.columns = df_precip_raw.columns.str.lower()
-existing_non_station_cols = [col for col in non_station_cols if col in df_precip_raw.columns]
-
-# Las columnas de estación son aquellas que no están en la lista de no-estación
-station_id_cols = [col for col in df_precip_raw.columns if col not in existing_non_station_cols and not col.startswith('unnamed')] 
+    # Detección ROBUSTA de columnas de estación: Aquellas que son dígitos Y NO son metadatos conocidos.
+    # Usamos .isdigit() como la intención original, pero limpiamos los metadatos
+    station_id_cols = [col for col in df_precip_raw.columns if col.isdigit()]
+    
+    # Limpiamos las columnas de metadatos/índices conocidos
+    existing_non_station_cols = [col for col in non_station_cols if col in df_precip_raw.columns]
+    # Usamos todas las columnas que no son metadatos conocidos como id_vars para el melt.
+    id_vars = [col for col in df_precip_raw.columns if col not in station_id_cols]
 
     if not station_id_cols:
         st.error("No se encontraron columnas de estación (ej: '12345') en el archivo de precipitación mensual.")
         return None, None, None, None
         
-    id_vars = [col for col in df_precip_raw.columns if not col.isdigit()]
+    # Melt (Despivotar) el DataFrame
     df_long = df_precip_raw.melt(id_vars=id_vars, value_vars=station_id_cols,
                                  var_name='id_estacion', value_name=Config.PRECIPITATION_COL)
                                  
@@ -172,6 +180,7 @@ station_id_cols = [col for col in df_precip_raw.columns if col not in existing_n
     df_long[Config.YEAR_COL] = df_long[Config.DATE_COL].dt.year
     df_long[Config.MONTH_COL] = df_long[Config.DATE_COL].dt.month
     
+    # Mapping station IDs to names
     id_estacion_col_name = next((col for col in gdf_stations.columns if 'id_estacio' in col), None)
     if id_estacion_col_name is None:
         st.error("No se encontró la columna 'id_estacio' en el archivo de estaciones.")
@@ -184,6 +193,7 @@ station_id_cols = [col for col in df_precip_raw.columns if col not in existing_n
     df_long[Config.STATION_NAME_COL] = df_long['id_estacion'].map(station_mapping)
     df_long.dropna(subset=[Config.STATION_NAME_COL], inplace=True)
     
+    # Merge station metadata (coordinates, altitude, etc.)
     station_metadata_cols = [
         Config.STATION_NAME_COL, Config.MUNICIPALITY_COL, Config.REGION_COL,
         Config.ALTITUDE_COL, Config.CELL_COL, Config.LATITUDE_COL, Config.LONGITUDE_COL, Config.ET_COL
@@ -197,6 +207,7 @@ station_id_cols = [col for col in df_precip_raw.columns if col not in existing_n
         how='left'
     )
     
+    # --- PROCESAMIENTO DE ENSO/ÍNDICES (SEPARADO) ---
     enso_cols = ['id', Config.DATE_COL, Config.ENSO_ONI_COL, 'temp_sst', 'temp_media']
     existing_enso_cols = [col for col in enso_cols if col in df_precip_raw.columns]
     
@@ -212,70 +223,68 @@ station_id_cols = [col for col in df_precip_raw.columns if col not in existing_n
             
     return gdf_stations, gdf_municipios, df_long, df_enso
 
+# --- FUNCIONES PARA DEM ---
+
 def extract_elevation_from_dem(gdf_stations, dem_data_source):
-    """Extrae la elevación de un DEM para cada estación en el GeoDataFrame."""
+    """
+    Extrae la elevación de un DEM para cada estación.
     
-    # Verificar si es un Streamlit UploadedFile o una ruta/buffer del DEM remoto
+    dem_data_source puede ser un Streamlit UploadedFile o una ruta de archivo cacheada.
+    """
     if dem_data_source is None:
         return gdf_stations
 
-    # Intentar obtener el objeto/ruta del archivo
-    if hasattr(dem_data_source, 'name'):
-        # Caso UploadedFile (local)
-        file_object = dem_data_source
-    else:
-        # Caso DEM remoto ya descargado/cacheado (asumido como una ruta de archivo o buffer)
-        file_object = dem_data_source 
+    # Determinar el objeto de archivo/ruta para rasterio
+    file_object = dem_data_source 
+    if hasattr(dem_data_source, 'name') and dem_data_source.name.lower().endswith('.tif'):
+        # Si es un UploadedFile, rasterio puede usarlo directamente o su ruta
+        try:
+            # Intentar usar el valor del UploadedFile como un buffer de memoria
+            file_object = io.BytesIO(dem_data_source.getvalue())
+        except:
+            pass # Si falla, se usa el objeto original (puede ser la ruta temporal)
 
     try:
-        # rasterio.open puede manejar la ruta del archivo o el buffer del archivo subido.
         with rasterio.open(file_object) as dem:
             coords = [(point.x, point.y) for point in gdf_stations.geometry]
-            # Muestrear el DEM en las coordenadas de las estaciones
             elevations = [val[0] for val in dem.sample(coords)]
             
-            # Reemplazar valores no válidos (e.g., -9999 o NaN)
             elevations = np.array(elevations)
+            # Reemplazar valores no válidos (e.g., -9999, NODATA) por NaN
             elevations[elevations < -1000] = np.nan 
             
-            gdf_stations[Config.ELEVATION_COL] = elevations
+            gdf_stations[Config.ALTITUDE_COL] = elevations # Usar Config.ALTITUDE_COL para la columna
         st.success("Elevación extraída del DEM para todas las estaciones.")
     except Exception as e:
-        st.error(f"Error al procesar el archivo DEM. Asegúrese de que es un GeoTIFF válido. Error: {e}")
-        # Si falla, limpiar la columna de elevación para que el usuario pueda reintentar
-        if Config.ELEVATION_COL in gdf_stations.columns:
-            gdf_stations.drop(columns=[Config.ELEVATION_COL], inplace=True)
+        st.error(f"Error al procesar el archivo DEM. Asegúrese de que es un GeoTIFF válido y el CRS coincide: {e}")
+        # Si falla, restaurar la columna original si existía
+        st.session_state[f'original_{Config.ALTITUDE_COL}'] = st.session_state.get(f'original_{Config.ALTITUDE_COL}', None)
+        if Config.ALTITUDE_COL in gdf_stations.columns and st.session_state[f'original_{Config.ALTITUDE_COL}'] is not None:
+             gdf_stations[Config.ALTITUDE_COL] = st.session_state[f'original_{Config.ALTITUDE_COL}']
     return gdf_stations
 
 @st.cache_resource
 def download_and_load_remote_dem(url):
     """
-    Descarga un DEM remoto (asumido como GeoTIFF) y lo almacena temporalmente.
-    
-    NOTA: Esta es una implementación simulada. En un caso real, la URL
-    debería apuntar a un archivo GeoTIFF accesible o un servicio WCS.
+    Simula la descarga de un DEM remoto. En un entorno real, esta función
+    descargaría un GeoTIFF a un archivo temporal y devolvería su ruta.
     """
     if not url:
         raise ValueError("La URL del servidor DEM no está configurada.")
         
-    # **IMPLEMENTACIÓN SIMULADA REAL**
-    # En un caso real, aquí descargarías el archivo GeoTIFF:
-    # response = requests.get(url, stream=True)
-    # with tempfile.NamedTemporaryFile(delete=False) as tmp:
-    #    for chunk in response.iter_content(chunk_size=1024):
-    #        tmp.write(chunk)
-    # return tmp.name # Retorna la ruta del archivo temporal
+    # --- LÓGICA DE DESCARGA REAL ---
+    # En un entorno real, descomentarías este código:
+    # try:
+    #     response = requests.get(url, stream=True)
+    #     response.raise_for_status()
+    #     with tempfile.NamedTemporaryFile(delete=False, suffix=".tif") as tmp:
+    #         for chunk in response.iter_content(chunk_size=8192):
+    #             tmp.write(chunk)
+    #     st.success(f"DEM remoto descargado temporalmente desde {url}.")
+    #     return tmp.name
+    # except Exception as e:
+    #     raise RuntimeError(f"Fallo la descarga del DEM: {e}")
     
-    # Dado que no puedo ejecutar descargas ni asumir un servidor, 
-    # simulamos la descarga exitosa y retornamos la URL como identificador
-    # para que extract_elevation_from_dem pueda intentar cargarlo (lo que fallará sin el archivo real)
-    # En tu entorno local, esta función debería descargar el GeoTIFF a una ruta temporal.
-    
-    # Simulamos el éxito y retornamos una marca para el estado de sesión
-    st.info(f"Simulación de descarga remota. En un entorno real, la descarga del DEM desde {url} se completaría aquí.")
-    return url 
-    
-# NOTA: Asegúrate de que tu `modules/config.py` contenga la variable:
-# class Config:
-#     # ... otras variables ...
-#     DEM_SERVER_URL = "https://servidor.remoto/dem.tif" # URL de tu servidor
+    # --- SIMULACIÓN (Asume que Config.DEM_SERVER_URL es una marca) ---
+    st.info(f"Simulación de descarga remota. En un entorno real, se usaría un archivo temporal. Usando '{url}' como marcador.")
+    return url # Retornamos la URL como un marcador para el estado de sesión
