@@ -9,10 +9,12 @@ import os
 import io
 import numpy as np
 import rasterio
-import requests # Necesario para la función remota
+import requests 
 from modules.config import Config
 from modules.utils import standardize_numeric_column
 from scipy.interpolate import Rbf
+
+# --- UTILS ---
 
 @st.cache_data
 def parse_spanish_dates(date_series):
@@ -43,10 +45,16 @@ def load_csv_data(file_uploader_object, sep=",", lower_case=True):
     for encoding in encodings_to_try:
         try:
             df = pd.read_csv(io.BytesIO(content), sep=sep, encoding=encoding)
-            # Limpieza básica de encabezados
+            
+            # Limpieza AGRESIVA de encabezados
             df.columns = df.columns.str.strip().str.replace(';', ",", regex=False)
+            
             if lower_case:
                 df.columns = df.columns.str.lower()
+            
+            # Nueva limpieza adicional para eliminar caracteres ocultos
+            df.columns = df.columns.str.strip() 
+            
             return df
         except Exception:
             continue
@@ -70,7 +78,6 @@ def load_shapefile(file_uploader_object):
             gdf = gpd.read_file(shp_path)
             gdf.columns = gdf.columns.str.strip().str.lower()
             if gdf.crs is None:
-                # Asumiendo un CRS por defecto si no está definido
                 gdf.set_crs("EPSG:9377", inplace=True)
             return gdf.to_crs("EPSG:4326")
     except Exception as e:
@@ -101,6 +108,8 @@ def complete_series(_df):
         progress_bar.progress((i + 1) / len(station_list), text=f"Completando series... Estación: {station}")
     progress_bar.empty()
     return pd.concat(all_completed_dfs, ignore_index=True)
+
+# --- MAIN PROCESSOR ---
 
 @st.cache_data
 def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded_zip_shapefile):
@@ -141,60 +150,33 @@ def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded
         
     # --- PROCESAMIENTO DE PRECIPITACIÓN (LARGO) ---
     
-    # 1. Definición de Columnas de Metadatos (columnas que NO son precipitación)
-    # Lista de TODAS las columnas de metadatos e índices que deben EXCLUIRSE del melt.
-    # Incluimos 'id_estacio' y 'nom_est' para ser exhaustivos.
-    columns_to_exclude = [
-        Config.DATE_COL, Config.ENSO_ONI_COL, Config.SOI_COL, Config.IOD_COL, 
-        'temp_sst', 'temp_media', 'id', 'fecha', 'mes', 'año', 'id_estacio', 'nom_est', 
-        'unnamed', 'fecha_mes_año', 'enso_año', 'enso_mes' # Columnas adicionales vistas en el CSV
-    ]
-    
     df_precip_raw.columns = df_precip_raw.columns.str.lower()
     
-    # 2. Detección de Columnas de Datos de Precipitación (value_vars)
-    # HACK ROBUSTO: Asumimos que cualquier columna que NO es un metadato conocido es una estación.
+    # Detección ROBUSTA: Asumimos que las columnas de datos de precipitación comienzan en la posición 11 (columna 12).
+    # Esta es la única forma de sortear los problemas de formato de encabezado.
     
-    station_id_cols = [
-        col for col in df_precip_raw.columns 
-        if col not in columns_to_exclude and 
-           not col.startswith('unnamed')
-    ]
-
-    # ¡Filtro crítico! Solo si las columnas son numéricas (por si hay basura al final)
-    station_id_cols = [col for col in station_id_cols if col.isdigit()]
-    
-    # Si después de todo, sigue vacío, forzamos una detección por posición
-    if not station_id_cols:
-         st.warning("Advertencia: Detección estricta falló. Intentando detección por posición.")
-         
-         # Identificamos el índice de la última columna de metadatos ('iod' o 'temp_media')
-         # Usaremos la lista de metadatos y la posición de la última columna conocida
-         known_cols_in_data = [col for col in df_precip_raw.columns if col in ['id', 'fecha_mes_año', 'iod']]
-         
-         if known_cols_in_data:
-             last_known_col = known_cols_in_data[-1]
-             last_index = df_precip_raw.columns.get_loc(last_known_col)
-             
-             # Las estaciones son el resto de las columnas
-             potential_station_cols = df_precip_raw.columns[last_index + 1:].tolist()
-             
-             # Aplicamos isdigit solo a las potenciales estaciones
-             station_id_cols = [col for col in potential_station_cols if col.isdigit()]
-
-
-    # 3. Verificación final y retorno de error
-    if not station_id_cols:
-        st.error("Error definitivo: No se pudieron identificar columnas de estación en el archivo de precipitación mensual.")
+    # Verificamos si el DataFrame tiene al menos 12 columnas.
+    if len(df_precip_raw.columns) < 12:
+        st.error("El archivo de precipitación tiene menos de 12 columnas, estructura mínima no cumplida.")
         return None, None, None, None
         
-    # Las columnas de identificación (id_vars) para el melt
+    # Columna 12 (índice 11) en adelante son datos de precipitación
+    potential_station_cols = df_precip_raw.columns[11:].tolist()
+    
+    # Filtramos para asegurar que sean IDs numéricos (si no son numéricos, son basura o columnas vacías)
+    station_id_cols = [col for col in potential_station_cols if col.isdigit()]
+
+    if not station_id_cols:
+        st.error("Error: No se pudieron identificar las columnas de estación. El problema es la codificación/formato de los encabezados.")
+        return None, None, None, None
+        
+    # Las columnas de identificación (id_vars) son todas las que NO son de estación
     id_vars = [col for col in df_precip_raw.columns if col not in station_id_cols]
 
     # Melt (Despivotar) el DataFrame
     df_long = df_precip_raw.melt(id_vars=id_vars, value_vars=station_id_cols,
                                  var_name='id_estacion', value_name=Config.PRECIPITATION_COL)
-                             
+                                 
     cols_to_numeric = [Config.ENSO_ONI_COL, 'temp_sst', 'temp_media',
                        Config.PRECIPITATION_COL, Config.SOI_COL, Config.IOD_COL]
                        
@@ -212,7 +194,6 @@ def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded
     df_long[Config.MONTH_COL] = df_long[Config.DATE_COL].dt.month
     
     # Mapping station IDs to names
-    # Usamos 'id_estacio' como la columna clave para el merge
     id_estacion_col_name = 'id_estacio' 
     if id_estacion_col_name not in gdf_stations.columns:
         st.error("No se encontró la columna 'id_estacio' en el archivo de estaciones.")
@@ -221,7 +202,6 @@ def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded
     gdf_stations[id_estacion_col_name] = gdf_stations[id_estacion_col_name].astype(str).str.strip()
     df_long['id_estacion'] = df_long['id_estacion'].astype(str).str.strip()
     
-    # Ahora mapeamos desde 'id_estacio' a 'nom_est' (que es Config.STATION_NAME_COL)
     station_mapping = gdf_stations.set_index(id_estacion_col_name)[Config.STATION_NAME_COL].to_dict()
     df_long[Config.STATION_NAME_COL] = df_long['id_estacion'].map(station_mapping)
     df_long.dropna(subset=[Config.STATION_NAME_COL], inplace=True)
