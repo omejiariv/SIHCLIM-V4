@@ -272,19 +272,6 @@ def download_and_load_remote_dem(url):
     if not url:
         raise ValueError("La URL del servidor DEM no está configurada.")
         
-    # --- LÓGICA DE DESCARGA REAL ---
-    # En un entorno real, descomentarías este código:
-    # try:
-    #     response = requests.get(url, stream=True)
-    #     response.raise_for_status()
-    #     with tempfile.NamedTemporaryFile(delete=False, suffix=".tif") as tmp:
-    #         for chunk in response.iter_content(chunk_size=8192):
-    #             tmp.write(chunk)
-    #     st.success(f"DEM remoto descargado temporalmente desde {url}.")
-    #     return tmp.name
-    # except Exception as e:
-    #     raise RuntimeError(f"Fallo la descarga del DEM: {e}")
-    
     # --- SIMULACIÓN (Asume que Config.DEM_SERVER_URL es una marca) ---
     st.info(f"Simulación de descarga remota. En un entorno real, se usaría un archivo temporal. Usando '{url}' como marcador.")
-    return url # Retornamos la URL como un marcador para el estado de sesión
+    return url
