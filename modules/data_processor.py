@@ -141,32 +141,50 @@ def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded
         
     # --- PROCESAMIENTO DE PRECIPITACIÓN (LARGO) ---
     
-    # 1. Columnas de Metadatos/Índices (para excluir del melt)
-    # Incluimos 'id_estacio' y 'nom_est' aquí para que no sean consideradas columnas de datos de precipitación
-    non_data_cols = [
+    # 1. Lista de Columnas a EXCLUIR del melt (Metadatos/Índices)
+    # Excluimos cualquier columna que contenga fecha o información de índice/metadato
+    # Usamos una lista amplia para asegurar la exclusión.
+    columns_to_exclude = [
         Config.DATE_COL, Config.ENSO_ONI_COL, Config.SOI_COL, Config.IOD_COL, 
-        'temp_sst', 'temp_media', 'id', 'fecha', 'mes', 'año', 'id_estacio', 'nom_est'
+        'temp_sst', 'temp_media', 'id', 'fecha', 'mes', 'año', 'id_estacio', 'nom_est', 'unnamed'
     ]
     
     df_precip_raw.columns = df_precip_raw.columns.str.lower()
 
     # 2. Detección de Columnas de Datos de Precipitación (value_vars para melt)
-    # Son las que no son metadatos y son numéricas (asumiendo que las estaciones tienen IDs numéricos)
-    # y excluyendo las columnas que inician con 'unnamed' (basura de CSVs).
+    # Asumimos que CUALQUIER columna que no sea metadato/índice/fecha es una columna de precipitación.
+    # Filtramos por las que NO están en la lista de exclusión.
     station_id_cols = [
         col for col in df_precip_raw.columns 
-        if col not in non_data_cols and 
-           not col.startswith('unnamed') and
-           col.isdigit() # Manteniendo la intención original de usar IDs numéricos
+        if not any(excl in col for excl in columns_to_exclude) and 
+           not col.startswith('unnamed')
     ]
     
-    # 3. Definición de id_vars para melt (Las columnas que quedan como filas: Fecha y Metadatos)
+    # Adicionalmente, forzamos que si una columna tiene solo un dígito, se incluya.
+    station_id_cols = [col for col in station_id_cols if col.isdigit()]
+    
+    # 3. Si la lista sigue vacía, usamos una heurística: ¡Todas las columnas menos la de fecha!
+    if not station_id_cols:
+         st.warning("La detección estricta de IDs numéricos falló. Usando heurística: la primera columna es Fecha, el resto son Estaciones.")
+         
+         # Si la primera columna contiene la palabra 'fecha' o 'date', la excluimos.
+         # Si no, asumimos que todas las columnas son IDs.
+         id_vars = [col for col in df_precip_raw.columns if any(keyword in col for keyword in [Config.DATE_COL, 'date', 'fecha', 'mes', 'año'])]
+         
+         if not id_vars and len(df_precip_raw.columns) > 1:
+             id_vars = [df_precip_raw.columns[0]]
+             station_id_cols = df_precip_raw.columns[1:].tolist()
+         elif id_vars:
+              station_id_cols = [col for col in df_precip_raw.columns if col not in id_vars]
+    
+    # Si la lista AÚN está vacía, emitimos el error
+    if not station_id_cols:
+        st.error("Error definitivo: No se pudieron identificar columnas de estación en el archivo de precipitación mensual. Verifique los encabezados.")
+        return None, None, None, None
+
+    # Las columnas de identificación (id_vars) para el melt
     id_vars = [col for col in df_precip_raw.columns if col not in station_id_cols]
 
-    if not station_id_cols:
-        st.error("No se encontraron columnas de estación (ej: '12345') en el archivo de precipitación mensual. Verifique que los IDs de estación sean SOLO números.")
-        return None, None, None, None
-        
     # Melt (Despivotar) el DataFrame
     df_long = df_precip_raw.melt(id_vars=id_vars, value_vars=station_id_cols,
                                  var_name='id_estacion', value_name=Config.PRECIPITATION_COL)
