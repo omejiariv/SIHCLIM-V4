@@ -1150,7 +1150,7 @@ def display_anomalies_tab(df_long, df_monthly_filtered, stations_for_analysis):
             st.dataframe(humedos.rename(columns={Config.STATION_NAME_COL: 'Estación', 'anomalia': 'Anomalía (mm)', Config.PRECIPITATION_COL: 'Ppt. (mm)', 'precip_promedio_mes': 'Ppt. Media (mm)'}).round(0), use_container_width=True)
 
 
-def display_stats_tab(df_long, df_anual_melted, df_monthly_filtered, stations_for_analysis):
+def display_stats_tab(df_long, df_anual_melted, df_monthly_filtered, stations_for_analysis, gdf_filtered):
     st.header("Estadísticas de Precipitación")
     display_filter_summary(
         total_stations_count=len(st.session_state.gdf_stations),
