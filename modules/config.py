@@ -7,8 +7,8 @@ import os
 class Config:
     # --- Configuración de la Aplicación ---
     APP_TITLE = "Sistema de Información de Lluvias y Clima en el norte de la región Andina"
-    LOGO_PATH = "assets/CuencaVerde_Logo.jpg"
-    GIF_PATH = "assets/PPAM.gif" # Ruta al GIF de Antioquia
+    LOGO_PATH = "assets/CuencaVerde_Logo.png" 
+    GIF_PATH = "assets/PPAM.gif" 
     WELCOME_TEXT = """
     "El futuro, también depende del pasado y de nuestra capacidad presente para anticiparlo" -- omr.
 
