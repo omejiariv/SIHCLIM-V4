@@ -137,7 +137,17 @@ def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded
     if Config.ALTITUDE_COL in gdf_stations.columns:
         gdf_stations[Config.ALTITUDE_COL] = standardize_numeric_column(gdf_stations[Config.ALTITUDE_COL])
         
-    station_id_cols = [col for col in df_precip_raw.columns if col.isdigit()]
+    id_vars = [col for col in df_precip_raw.columns if not col.isdigit()] # (Se usa abajo, pero la definimos para contexto)
+
+# Definir las columnas que NO son valores de precipitación (fechas, índices ENSO, etc.)
+non_station_cols = [Config.DATE_COL, Config.ENSO_ONI_COL, Config.SOI_COL, Config.IOD_COL, 'temp_sst', 'temp_media']
+# Asegurarse de que las columnas están en minúsculas debido al preprocesamiento
+df_precip_raw.columns = df_precip_raw.columns.str.lower()
+existing_non_station_cols = [col for col in non_station_cols if col in df_precip_raw.columns]
+
+# Las columnas de estación son aquellas que no están en la lista de no-estación
+station_id_cols = [col for col in df_precip_raw.columns if col not in existing_non_station_cols and not col.startswith('unnamed')] 
+
     if not station_id_cols:
         st.error("No se encontraron columnas de estación (ej: '12345') en el archivo de precipitación mensual.")
         return None, None, None, None
