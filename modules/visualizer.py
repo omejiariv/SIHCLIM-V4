@@ -485,18 +485,19 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                                         key="monthly_color_by", disabled=color_by_disabled)
                 with chart_col:
                     if chart_type != "Gráfico de Cajas (Distribución Mensual)":
-                        base_chart = alt.Chart(df_monthly_rich).encode( # <-- USAR df_monthly_rich
+                        base_chart = alt.Chart(df_monthly_rich).encode( # df_monthly_rich es correcto
                             x=alt.X(f'{Config.DATE_COL}:T', title='Fecha'),
                             y=alt.Y(f'{Config.PRECIPITATION_COL}:Q', title='Precipitación (mm)'),
                             tooltip=[
                                 alt.Tooltip(Config.DATE_COL, format='%Y-%m'),
                                 alt.Tooltip(f'{Config.PRECIPITATION_COL}:Q', format='.0f', title='Ppt. Mensual'),
-                                Config.STATION_NAME_COL,
-                                Config.ORIGIN_COL, 
+                                # 💥 CORRECCIÓN DE MUNICIPALIDAD y ALTITUD 💥
+                                alt.Tooltip(f'{Config.STATION_NAME_COL}:N', title='Estación'), 
+                                alt.Tooltip(Config.ORIGIN_COL, title='Origen'), 
                                 alt.Tooltip(f'{Config.MONTH_COL}:N', title="Mes"),
-                                # 💥 NUEVOS TOOLTIPS 💥
-                                alt.Tooltip(Config.MUNICIPALITY_COL, title='Municipio'),
-                                alt.Tooltip(Config.ALTITUDE_COL, format='.0f', title='Altitud (m)')
+                                # Usamos :N (Nominal/Cadena) para Municipio y :Q (Cuantitativo) para Altitud.
+                                alt.Tooltip(f'{Config.MUNICIPALITY_COL}:N', title='Municipio'), 
+                                alt.Tooltip(f'{Config.ALTITUDE_COL}:Q', format='.0f', title='Altitud (m)')
                             ]
                         )
                         color_encoding = alt.Color(f'{Config.STATION_NAME_COL}:N', legend=alt.Legend(title="Estaciones"))
