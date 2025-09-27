@@ -9,10 +9,8 @@ import numpy as np
 import warnings
 
 # --- Importaciones de Módulos ---
-# Asegúrate de que tu data_processor tenga las funciones extract_elevation_from_dem 
-# y, si la usas, download_and_load_remote_dem
 from modules.config import Config
-from modules.data_processor import load_and_process_all_data, complete_series, extract_elevation_from_dem, download_and_load_remote_dem 
+from modules.data_processor import load_and_process_all_data, complete_series, extract_elevation_from_dem, download_and_load_remote_dem
 from modules.visualizer import (
     display_welcome_tab, display_spatial_distribution_tab, display_graphs_tab,
     display_advanced_maps_tab, display_anomalies_tab, display_drought_analysis_tab,
@@ -32,7 +30,7 @@ def sync_station_selection():
     else:
         st.session_state.station_multiselect = []
 
-# Función para aplicar filtros a las estaciones (movida fuera de main para claridad)
+# Función para aplicar filtros a las estaciones
 def apply_filters_to_stations(df, min_perc, altitudes, regions, municipios, celdas):
     stations_filtered = df.copy()
     if Config.PERCENTAGE_COL in stations_filtered.columns:
@@ -80,9 +78,8 @@ def main():
 
     st.sidebar.header("Panel de Control")
 
-    # --- 1. NUEVA LÓGICA DE CARGA PERSISTENTE ---
+    # --- LÓGICA DE CARGA PERSISTENTE ---
     
-    # Checkbox central para activar la carga/actualización
     update_data_toggle = st.sidebar.checkbox(
         "Activar Carga/Actualización de Archivos Base", 
         value=not st.session_state.get('data_loaded', False), 
@@ -100,11 +97,11 @@ def main():
                 
                 # LÍNEA 101: INICIO DEL CONTEXTO 'WITH'
                 with st.spinner("Procesando archivos y cargando datos..."):
-                    # Esta línea y la siguiente DEBEN tener 4 espacios más de sangría que 'with'
+                    # La función de carga cacheada se llama aquí
                     gdf_stations, gdf_municipios, df_long, df_enso = load_and_process_all_data(
                         uploaded_file_mapa, uploaded_file_precip, uploaded_zip_shapefile)
                         
-                    # LÍNEA 104: INICIO DEL CONTEXTO 'IF' (DEBE TENER LA MISMA SANGRÍA QUE ARRIBA)
+                    # LÍNEA 104: INICIO DEL CONTEXTO 'IF'
                     if gdf_stations is not None and df_long is not None:
                         # Todo este bloque debe tener 8 espacios de sangría
                         st.session_state.gdf_stations = gdf_stations
@@ -113,16 +110,15 @@ def main():
                         st.session_state.df_enso = df_enso
                         st.session_state.data_loaded = True
                         
-                        # 💥 NO ASIGNAMOS EL WIDGET DIRECTAMENTE 💥
-                        # st.session_state.update_data_toggle = False # COMENTAR/ELIMINAR ESTA LÍNEA
+                        # st.session_state.update_data_toggle = False # 💥 ELIMINAMOS ESTA LÍNEA (CAUSA APIException)
                         
                         st.success("¡Datos cargados y listos!")
                         st.rerun() 
                     else:
                         # Este 'else' debe estar sangrado al nivel del 'if' (4 espacios más que 'with')
                         st.error("Hubo un error al procesar los archivos.")
-    
-    # Mensaje de estado
+
+    # Mensaje de estado y lógica de filtros (solo si los datos están cargados)
     if st.session_state.get('data_loaded', False) and st.session_state.get('df_long') is not None:
         st.sidebar.success("✅ Datos base cargados y persistentes.")
         
@@ -135,7 +131,7 @@ def main():
                 del st.session_state[key]
             st.rerun()
 
-        # --- 2. NUEVA LÓGICA DE DEM ---
+        # --- LÓGICA DE DEM ---
         with st.sidebar.expander("Opciones de Modelo Digital de Elevación (DEM)", expanded=True):
             
             dem_source = st.radio(
@@ -144,10 +140,6 @@ def main():
                 key="dem_source"
             )
             
-            # Inicializar dem_raster en el estado de sesión
-            if 'dem_raster' not in st.session_state:
-                st.session_state.dem_raster = None
-
             uploaded_dem_file = None
             if dem_source == "Subir DEM propio (GeoTIFF)":
                 uploaded_dem_file = st.file_uploader(
@@ -157,31 +149,38 @@ def main():
                 )
             
             if dem_source == "Cargar DEM desde Servidor":
-                if st.button("Descargar y Usar DEM Remoto"):
+                if st.button("Descargar y Usar DEM Remoto", key="download_dem_button"):
                     with st.spinner("Descargando DEM del servidor..."):
                         try:
-                            # Asume que Config.DEM_SERVER_URL contiene la URL o path necesario
-                            st.session_state.dem_raster = download_and_load_remote_dem(Config.DEM_SERVER_URL)
+                            # 🚨 USAMOS LA VARIABLE DE CONFIG.PY
+                            st.session_state.dem_raster = download_and_load_remote_dem(Config.DEM_SERVER_URL) 
                             st.success("DEM remoto cargado y listo para KED.")
                         except Exception as e:
+                            # 🚨 MENSAJE DE ERROR MEJORADO
                             st.error(f"Error al cargar DEM remoto: {e}. Verifique la URL en Config.py")
                             st.session_state.dem_raster = None
 
-            # Procesamiento del DEM (si se subió uno local o se cargó remoto)
+            # Procesamiento del DEM
             if dem_source == "No usar DEM":
-                st.session_state.dem_raster = None # Asegurar que es None si el usuario elige no usarlo
+                st.session_state.dem_raster = None 
 
             if uploaded_dem_file or st.session_state.get('dem_raster') is not None:
+                # Almacenar la columna original de altitud si no existe una copia
+                if f'original_{Config.ALTITUDE_COL}' not in st.session_state:
+                    st.session_state[f'original_{Config.ALTITUDE_COL}'] = st.session_state.gdf_stations.get(Config.ALTITUDE_COL, None)
+
                 dem_data = uploaded_dem_file if uploaded_dem_file else st.session_state.dem_raster
                 
-                # Asumimos que extract_elevation_from_dem maneja tanto un uploaded_file como una matriz/ruta cacheada.
                 st.session_state.gdf_stations = extract_elevation_from_dem(
                     st.session_state.gdf_stations.copy(),
                     dem_data
                 )
-                st.sidebar.success("Altitud de estaciones actualizada usando el DEM.")
+                st.sidebar.success("Altitud de estaciones actualizada.")
+            else:
+                # Restaurar la columna original si el usuario selecciona "No usar DEM" después de cargarlo
+                if st.session_state.get(f'original_{Config.ALTITUDE_COL}') is not None and Config.ALTITUDE_COL in st.session_state.gdf_stations.columns:
+                     st.session_state.gdf_stations[Config.ALTITUDE_COL] = st.session_state[f'original_{Config.ALTITUDE_COL}']
 
-        # --- FIN LÓGICA DE DEM ---
 
         # --- LÓGICA DE FILTROS Y PROCESAMIENTO ---
 
@@ -224,7 +223,6 @@ def main():
                         del st.session_state[key]
                 st.rerun()
 
-        # Re-aplicar filtros a gdf_stations base
         gdf_filtered = apply_filters_to_stations(st.session_state.gdf_stations, min_data_perc,
                                                     selected_altitudes, selected_regions, selected_municipios,
                                                     selected_celdas)
@@ -280,7 +278,6 @@ def main():
         
         st.session_state.meses_numeros = meses_numeros
 
-        # Aplicar el modo de análisis (interpolación o no)
         if st.session_state.analysis_mode == "Completar series (interpolación)":
             df_monthly_processed = complete_series(st.session_state.df_long.copy())
         else:
@@ -288,7 +285,6 @@ def main():
             
         st.session_state.df_monthly_processed = df_monthly_processed
 
-        # Filtrar datos mensuales
         df_monthly_filtered = df_monthly_processed[
             (df_monthly_processed[Config.STATION_NAME_COL].isin(stations_for_analysis)) &
             (df_monthly_processed[Config.DATE_COL].dt.year >= year_range[0]) &
@@ -296,14 +292,12 @@ def main():
             (df_monthly_processed[Config.DATE_COL].dt.month.isin(meses_numeros))
         ].copy()
 
-        # Filtrar datos anuales para agregación
         annual_data_filtered = st.session_state.df_long[
             (st.session_state.df_long[Config.STATION_NAME_COL].isin(stations_for_analysis)) &
             (st.session_state.df_long[Config.YEAR_COL] >= year_range[0]) &
             (st.session_state.df_long[Config.YEAR_COL] <= year_range[1])
         ].copy()
 
-        # Aplicar exclusión de NaN/Ceros a los datos filtrados
         if st.session_state.get('exclude_na', False):
             df_monthly_filtered.dropna(subset=[Config.PRECIPITATION_COL], inplace=True)
             annual_data_filtered.dropna(subset=[Config.PRECIPITATION_COL], inplace=True)
@@ -313,7 +307,6 @@ def main():
             annual_data_filtered = \
                 annual_data_filtered[annual_data_filtered[Config.PRECIPITATION_COL] > 0]
 
-        # Agregación anual (Mantener la lógica de 10 meses válidos)
         annual_agg = annual_data_filtered.groupby([Config.STATION_NAME_COL,
                                                      Config.YEAR_COL]).agg(
             precipitation_sum=(Config.PRECIPITATION_COL, 'sum'),
@@ -366,7 +359,6 @@ def main():
             display_station_table_tab(gdf_filtered, df_anual_melted, stations_for_analysis)
 
     else:
-        # Mensaje si los datos base no están cargados
         display_welcome_tab()
         st.info("Para comenzar, active 'Carga/Actualización de Archivos Base' y suba los 3 archivos requeridos en el panel de la izquierda.")
 
