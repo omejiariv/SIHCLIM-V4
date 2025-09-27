@@ -1302,7 +1302,7 @@ def display_stats_tab(df_long, df_anual_melted, df_monthly_filtered, stations_fo
         else:
             st.info("No hay datos para mostrar el resumen mensual.")
 
-    with sintesis_tab:
+with sintesis_tab:
     st.subheader("Síntesis General de Precipitación")
     
     # 1. Preparación de Datos
