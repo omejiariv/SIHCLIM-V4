@@ -95,27 +95,20 @@ def main():
             if st.button("Procesar y Almacenar Datos", key='process_data_button') and \
                all([uploaded_file_mapa, uploaded_file_precip, uploaded_zip_shapefile]):
                 
-                # LÍNEA 101: INICIO DEL CONTEXTO 'WITH'
+                # 💥 AÑADIR ESTA LÍNEA CRÍTICA PARA LIMPIAR EL CACHÉ DE ASSETS (GIF/DEM) 💥
+                st.cache_resource.clear() 
+                
                 with st.spinner("Procesando archivos y cargando datos..."):
                     # La función de carga cacheada se llama aquí
                     gdf_stations, gdf_municipios, df_long, df_enso = load_and_process_all_data(
                         uploaded_file_mapa, uploaded_file_precip, uploaded_zip_shapefile)
                         
-                    # LÍNEA 104: INICIO DEL CONTEXTO 'IF'
                     if gdf_stations is not None and df_long is not None:
-                        # Todo este bloque debe tener 8 espacios de sangría
-                        st.session_state.gdf_stations = gdf_stations
-                        st.session_state.gdf_municipios = gdf_municipios
-                        st.session_state.df_long = df_long
-                        st.session_state.df_enso = df_enso
+                        # ... (guarda los DataFrames en session_state)
                         st.session_state.data_loaded = True
-                        
-                        # st.session_state.update_data_toggle = False # 💥 ELIMINAMOS ESTA LÍNEA (CAUSA APIException)
-                        
                         st.success("¡Datos cargados y listos!")
                         st.rerun() 
                     else:
-                        # Este 'else' debe estar sangrado al nivel del 'if' (4 espacios más que 'with')
                         st.error("Hubo un error al procesar los archivos.")
 
     # Mensaje de estado y lógica de filtros (solo si los datos están cargados)
