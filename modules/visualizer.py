@@ -727,28 +727,39 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
     gif_tab, temporal_tab, race_tab, anim_tab, compare_tab, kriging_tab = st.tabs(tab_names)
 
     with gif_tab:
-        st.subheader("Distribución Espacio-Temporal de la Lluvia en Antioquia")
-        if os.path.exists(Config.GIF_PATH):
-            col_controls, col_gif = st.columns([1, 3])
-            with col_controls:
-                if st.button(" Reiniciar Animación"):
-                    st.session_state['gif_reload_key'] += 1
-                    st.rerun()
-            with col_gif:
-                try:
-                    with open(Config.GIF_PATH, "rb") as file:
-                        contents = file.read()
-                        data_url = base64.b64encode(contents).decode("utf-8")
-                    st.markdown(
-                        f'<img src="data:image/gif;base64,{data_url}" alt="Animación PPAM"'
-                        f'style="width:70%; max-width: 600px;"'
-                        f'key="gif_display_{st.session_state["gif_reload_key"]}">',
-                        unsafe_allow_html=True
-                    )
-                except Exception as e:
-                    st.warning(f"Error al cargar/mostrar GIF: {e}")
-        else:
-            st.warning("No se encontró el archivo GIF en la ruta especificada.")
+    st.subheader("Distribución Espacio-Temporal de la Lluvia en Antioquia")
+    
+    # Intentamos cargar el GIF usando la ruta absoluta para máxima seguridad
+    gif_path_absolute = os.path.abspath(Config.GIF_PATH)
+    
+    # 💥 Eliminamos la verificación condicional, confiando en el 'try/except' 💥
+    col_controls, col_gif = st.columns([1, 3])
+    
+    with col_controls:
+        if st.button(" Reiniciar Animación", key="reset_gif_button"):
+            # Aumentar la clave y forzar el rerun para limpiar el caché del GIF
+            st.session_state['gif_reload_key'] += 1
+            st.rerun()
+            
+    with col_gif:
+        try:
+            # Leemos el GIF en modo binario
+            with open(gif_path_absolute, "rb") as file:
+                contents = file.read()
+                data_url = base64.b64encode(contents).decode("utf-8")
+            
+            st.markdown(
+                f'<img src="data:image/gif;base64,{data_url}" alt="Animación PPAM"'
+                f'style="width:70%; max-width: 600px;"'
+                f'key="gif_display_{st.session_state["gif_reload_key"]}">',
+                unsafe_allow_html=True
+            )
+        except FileNotFoundError:
+            # Si FileNotFoundError ocurre, se maneja aquí.
+            st.warning(f"No se encontró el archivo GIF en la ruta especificada: {Config.GIF_PATH}")
+        except Exception as e:
+            # Para otros errores (corrupción de archivo, etc.)
+            st.warning(f"Error al cargar/mostrar GIF: {e}")
 
     with temporal_tab:
         st.subheader("Explorador Anual de Precipitación")
