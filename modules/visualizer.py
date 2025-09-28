@@ -380,7 +380,6 @@ def display_spatial_distribution_tab(gdf_filtered, stations_for_analysis, df_anu
             else:
                 st.warning("No hay estaciones seleccionadas para mostrar el gráfico.")
 
-
 def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analysis, gdf_filtered):
     st.header("Visualizaciones de Precipitación")
     display_filter_summary(
@@ -404,8 +403,34 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
     metadata_cols = [Config.STATION_NAME_COL, Config.MUNICIPALITY_COL, Config.ALTITUDE_COL]
     gdf_metadata = gdf_filtered[metadata_cols].drop_duplicates(subset=[Config.STATION_NAME_COL]).copy() 
     
-    df_anual_rich = df_anual_melted.merge(gdf_metadata, on=Config.STATION_NAME_COL, how='left')
-    df_monthly_rich = df_monthly_filtered.merge(gdf_metadata, on=Config.STATION_NAME_COL, how='left')
+    df_anual_rich = df_anual_melted.copy()
+    df_monthly_rich = df_monthly_filtered.copy()
+
+    all_metadata_cols = [
+        Config.STATION_NAME_COL, 
+        Config.MUNICIPALITY_COL, 
+        Config.ALTITUDE_COL
+    ]
+    
+    # Verificamos cuáles de estas columnas realmente existen en el dataframe filtrado
+    existing_metadata_cols = [col for col in all_metadata_cols if col in gdf_filtered.columns]
+
+    # Si hay metadatos para agregar (aparte del nombre de la estación), procedemos con la fusión
+    if len(existing_metadata_cols) > 1:
+
+        # Extraemos los metadatos y eliminamos duplicados de estaciones
+        gdf_metadata = gdf_filtered[existing_metadata_cols].drop_duplicates(subset=[Config.STATION_NAME_COL]).copy()
+
+        # --- CLAVE DE LA SOLUCIÓN: LIMPIEZA DE LAS LLAVES DE UNIÓN --- 
+        # Aseguramos que la columna 'nom_est' sea de tipo texto (string) y sin espacios extra en AMBOS dataframes
+        key_col = Config.STATION_NAME_COL
+        df_monthly_rich[key_col] = df_monthly_rich[key_col].astype(str).str.strip()
+        df_anual_rich[key_col] = df_anual_rich[key_col].astype(str).str.strip()
+        gdf_metadata[key_col] = gdf_metadata[key_col].astype(str).str.strip()
+
+        # Realizamos el merge, que ahora debería funcionar correctamente
+        df_monthly_rich = pd.merge(df_monthly_rich, gdf_metadata, on=key_col, how='left')
+        df_anual_rich = pd.merge(df_anual_rich, gdf_metadata, on=key_col, how='left')
     
     # --- PESTAÑAS DE VISUALIZACIÓN ---
     sub_tab_anual, sub_tab_mensual, sub_tab_comparacion, sub_tab_distribucion, \
