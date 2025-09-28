@@ -728,35 +728,25 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
 
     with gif_tab:
         st.subheader("Distribución Espacio-Temporal de la Lluvia en Antioquia")
-        
-        # Intentamos cargar el GIF usando la ruta absoluta para máxima seguridad
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        gif_path_absolute = os.path.join(base_dir, '..', Config.GIF_PATH)
+    
+        # Usamos la URL simple relativa para evitar el error de open() y FileNotFoundError
+        gif_url = Config.GIF_PATH # Esto debe ser "assets/PPAM.gif"
 
         col_controls, col_gif = st.columns([1, 3])
-        
+    
         with col_controls:
+            # Aquí, al reiniciar, actualizamos la clave para forzar la recarga de la imagen
             if st.button(" Reiniciar Animación", key="reset_gif_button"):
                 st.session_state['gif_reload_key'] += 1
                 st.rerun()
-                
+            
         with col_gif:
-            try:
-                # Leemos el GIF en modo binario
-                with open(gif_path_absolute, "rb") as file:
-                    contents = file.read()
-                    data_url = base64.b64encode(contents).decode("utf-8")
-                
-                st.markdown(
-                    f'<img src="data:image/gif;base64,{data_url}" alt="Animación PPAM"'
-                    f'style="width:70%; max-width: 600px;"'
-                    f'key="gif_display_{st.session_state["gif_reload_key"]}">',
-                    unsafe_allow_html=True
-                )
-            except FileNotFoundError:
-                st.warning(f"No se encontró el archivo GIF en la ruta especificada: {Config.GIF_PATH}")
-            except Exception as e:
-                st.warning(f"Error al cargar/mostrar GIF: {e}")
+            # 💥 MÉTODO MÁS SIMPLE: Referencia directa a URL, confiando en la caché de Streamlit/navegador 💥
+            st.markdown(
+                f'<img src="{gif_url}?{st.session_state["gif_reload_key"]}" alt="Animación PPAM"'
+                f'style="width:70%; max-width: 600px;">',
+                unsafe_allow_html=True
+            )
 
     with temporal_tab:
         st.subheader("Explorador Anual de Precipitación")
