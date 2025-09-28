@@ -337,7 +337,7 @@ def main():
             display_drought_analysis_tab(df_monthly_filtered, gdf_filtered, stations_for_analysis)
         with tabs[6]:
             display_stats_tab(st.session_state.df_long, df_anual_melted, df_monthly_filtered,
-                              stations_for_analysis, gdf_filtered)
+                             stations_for_analysis, gdf_filtered)
         with tabs[7]:
             display_correlation_tab(df_monthly_filtered, stations_for_analysis)
         with tabs[8]:
