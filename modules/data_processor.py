@@ -214,12 +214,16 @@ def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded
     ]
     existing_metadata_cols = [col for col in station_metadata_cols if col in gdf_stations.columns]
     
-    df_long = pd.merge(
-        df_long,
-        gdf_stations[existing_metadata_cols].drop_duplicates(subset=[Config.STATION_NAME_COL]),
-        on=Config.STATION_NAME_COL,
-        how='left'
-    )
+    stations_metadata_df = gdf_stations[existing_metadata_cols].drop_duplicates(subset=[Config.STATION_NAME_COL]).copy()
+    key_col = Config.STATION_NAME_COL
+
+    # Limpiamos la llave de unión en AMBOS dataframes para asegurar la coincidencia
+    # Este es el paso que corrige el problema desde la raíz
+    df_long[key_col] = df_long[key_col].astype(str).str.strip()
+    stations_metadata_df[key_col] = stations_metadata_df[key_col].astype(str).str.strip()
+
+    # Realizamos la unión robusta
+    df_long = pd.merge(df_long, stations_metadata_df, on=key_col, how='left')
     
     # --- PROCESAMIENTO DE ENSO/ÍNDICES (SEPARADO) ---
     enso_cols = ['id', Config.DATE_COL, Config.ENSO_ONI_COL, 'temp_sst', 'temp_media']
