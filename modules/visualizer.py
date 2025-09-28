@@ -727,33 +727,43 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
                  "Mapa Animado", "Comparación de Mapas", "Interpolación Comparativa"]
     gif_tab, temporal_tab, race_tab, anim_tab, compare_tab, kriging_tab = st.tabs(tab_names)
 
+    # modules/visualizer.py
+
+# ... (dentro de la función display_advanced_maps_tab)
+
     with gif_tab:
         st.subheader("Distribución Espacio-Temporal de la Lluvia en Antioquia")
-        
-        # Usamos la URL simple relativa
-        gif_url = Config.GIF_PATH
 
         col_controls, col_gif = st.columns([1, 3])
-        
+    
         with col_controls:
-            if st.button(" Reiniciar Animación", key="reset_gif_button"):
-                st.session_state['gif_reload_key'] += 1
+            if st.button("🔄 Reiniciar Animación", key="reset_gif_button"):
+                # Incrementar la clave en session_state para forzar la recarga
+                st.session_state.gif_reload_key += 1
                 st.rerun()
-                
-        with col_gif:
-            try:
-                # 💥 SOLUCIÓN FINAL GIF: Referencia directa a URL con clave de caché única 💥
-                # Esto evita la lectura binaria directa (open()) que causa conflictos de permisos/inotify
-                st.markdown(
-                    f'<img src="{gif_url}?{st.session_state["gif_reload_key"]}" alt="Animación PPAM"'
-                    f'style="width:70%; max-width: 600px;">',
-                    unsafe_allow_html=True
-                )
-            except Exception as e:
-                # Capturamos errores de renderizado/sintaxis si el markdown falla
-                st.warning(f"Error al cargar/mostrar GIF: {e}")
-                st.warning(f"Verifique la existencia del archivo en: {Config.GIF_PATH}") 
 
+        with col_gif:
+            gif_path = Config.GIF_PATH
+            if os.path.exists(gif_path):
+                try:
+                    # Leer el archivo GIF en modo binario
+                    with open(gif_path, "rb") as f:
+                        contents = f.read()
+                
+                    # Codificar en base64
+                    data_url = base64.b64encode(contents).decode("utf-8")
+                
+                    # Embeber en el markdown usando el string base64
+                    # Se mantiene la clave de recarga para el cache-busting
+                    st.markdown(
+                        f'<img src="data:image/gif;base64,{data_url}?{st.session_state.get("gif_reload_key", 0)}" alt="Animación PPAM" style="width:70%; max-width:600px;">',
+                        unsafe_allow_html=True,
+                    )
+                except Exception as e:
+                    st.error(f"Ocurrió un error al cargar el GIF: {e}")
+            else:
+                st.error(f"No se pudo encontrar el archivo GIF en la ruta especificada: {gif_path}")
+        
     with temporal_tab:
         st.subheader("Explorador Anual de Precipitación")
         df_anual_melted_non_na = df_anual_melted.dropna(subset=[Config.PRECIPITATION_COL])
