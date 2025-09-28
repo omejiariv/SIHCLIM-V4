@@ -743,24 +743,13 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
                 st.rerun()
 
         with col_gif:
-            gif_path = Config.GIF_PATH
+            gif_path = Config.GIF_PATH  # "assets/PPAM.gif"
             if os.path.exists(gif_path):
                 try:
-                    # Leer el archivo GIF en modo binario
-                    with open(gif_path, "rb") as f:
-                        contents = f.read()
-                
-                    # Codificar en base64
-                    data_url = base64.b64encode(contents).decode("utf-8")
-                
-                    # Embeber en el markdown usando el string base64
-                    # Se mantiene la clave de recarga para el cache-busting
-                    st.markdown(
-                        f'<img src="data:image/gif;base64,{data_url}?{st.session_state.get("gif_reload_key", 0)}" alt="Animación PPAM" style="width:70%; max-width:600px;">',
-                        unsafe_allow_html=True,
-                    )
+                    st.image(gif_path, caption="Animación PPAM", width=600)
+                        
                 except Exception as e:
-                    st.error(f"Ocurrió un error al cargar el GIF: {e}")
+                    st.error(f"Ocurrió un error al intentar mostrar el GIF con st.image: {e}")
             else:
                 st.error(f"No se pudo encontrar el archivo GIF en la ruta especificada: {gif_path}")
         
