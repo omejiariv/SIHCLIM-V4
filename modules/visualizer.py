@@ -729,7 +729,7 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
     with gif_tab:
         st.subheader("Distribución Espacio-Temporal de la Lluvia en Antioquia")
         
-        # Intentamos cargar el GIF usando la ruta simple definida en Config (relativa al directorio de la app)
+        # Usamos la URL simple relativa
         gif_url = Config.GIF_PATH
 
         col_controls, col_gif = st.columns([1, 3])
@@ -741,7 +741,7 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
                 
         with col_gif:
             try:
-                # 💥 NUEVA LÓGICA: Referencia directa a URL con clave de caché única 💥
+                # 💥 SOLUCIÓN FINAL GIF: Referencia directa a URL con clave de caché única 💥
                 st.markdown(
                     f'<img src="{gif_url}?{st.session_state["gif_reload_key"]}" alt="Animación PPAM"'
                     f'style="width:70%; max-width: 600px;">',
@@ -750,7 +750,7 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
             except Exception as e:
                 # Capturamos errores de renderizado/sintaxis si el markdown falla
                 st.warning(f"Error al cargar/mostrar GIF: {e}")
-                st.warning(f"Verifique la existencia del archivo en: {Config.GIF_PATH}") # Indicación explícita de ruta
+                st.warning(f"Verifique la existencia del archivo en: {Config.GIF_PATH}") 
 
     with temporal_tab:
         st.subheader("Explorador Anual de Precipitación")
