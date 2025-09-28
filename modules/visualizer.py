@@ -241,7 +241,14 @@ def display_welcome_tab():
     st.header("Bienvenido al Sistema de Información de Lluvias y Clima")
     st.markdown(Config.WELCOME_TEXT, unsafe_allow_html=True)
     if os.path.exists(Config.LOGO_PATH):
-        st.image(Config.LOGO_PATH, width=250, caption="Corporación Cuenca Verde")
+        try:
+            # CORRECCIÓN: Leemos la imagen en binario para evitar UnidentifiedImageError
+            with open(Config.LOGO_PATH, "rb") as f:
+                logo_bytes = f.read()
+            st.image(logo_bytes, width=250, caption="Corporación Cuenca Verde")
+        except Exception:
+            st.warning("No se pudo cargar el logo de bienvenida.")
+
 
 def display_spatial_distribution_tab(gdf_filtered, stations_for_analysis, df_anual_melted, df_monthly_filtered):
     st.header("Distribución espacial de las Estaciones de Lluvia")
@@ -285,7 +292,12 @@ def display_spatial_distribution_tab(gdf_filtered, stations_for_analysis, df_anu
             if not gdf_display.empty:
                 st.markdown("---")
                 if os.path.exists(Config.LOGO_PATH):
-                    st.image(Config.LOGO_PATH, width=70)
+                    try:
+                        with open(Config.LOGO_PATH, "rb") as f:
+                            logo_bytes = f.read()
+                        st.image(logo_bytes, width=70)
+                    except Exception:
+                        st.warning("No se pudo cargar el logo.")
                 st.metric("Estaciones en Vista", len(gdf_display))
                 st.markdown("---")
         with map_col:
@@ -419,9 +431,8 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                             alt.Tooltip(Config.STATION_NAME_COL), 
                             alt.Tooltip(Config.YEAR_COL, format='d', title='Año'), 
                             alt.Tooltip(f'{Config.PRECIPITATION_COL}:Q', format='.0f', title='Ppt. Anual (mm)'),
-                            # 💥 NUEVOS TOOLTIPS 💥
-                            alt.Tooltip(Config.MUNICIPALITY_COL, title='Municipio'), 
-                            alt.Tooltip(Config.ALTITUDE_COL, format='.0f', title='Altitud (m)') 
+                            alt.Tooltip(f'{Config.MUNICIPALITY_COL}:N', title='Municipio'), 
+                            alt.Tooltip(f'{Config.ALTITUDE_COL}:Q', format='.0f', title='Altitud (m)') 
                         ]
                     )
                     .properties(title=f'Precipitación Anual por Estación ({year_min} - {year_max})')
@@ -485,17 +496,15 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                                         key="monthly_color_by", disabled=color_by_disabled)
                 with chart_col:
                     if chart_type != "Gráfico de Cajas (Distribución Mensual)":
-                        base_chart = alt.Chart(df_monthly_rich).encode( # df_monthly_rich es correcto
+                        base_chart = alt.Chart(df_monthly_rich).encode( # <-- USAR df_monthly_rich
                             x=alt.X(f'{Config.DATE_COL}:T', title='Fecha'),
                             y=alt.Y(f'{Config.PRECIPITATION_COL}:Q', title='Precipitación (mm)'),
                             tooltip=[
                                 alt.Tooltip(Config.DATE_COL, format='%Y-%m'),
                                 alt.Tooltip(f'{Config.PRECIPITATION_COL}:Q', format='.0f', title='Ppt. Mensual'),
-                                # 💥 CORRECCIÓN DE MUNICIPALIDAD y ALTITUD 💥
                                 alt.Tooltip(f'{Config.STATION_NAME_COL}:N', title='Estación'), 
                                 alt.Tooltip(Config.ORIGIN_COL, title='Origen'), 
                                 alt.Tooltip(f'{Config.MONTH_COL}:N', title="Mes"),
-                                # Usamos :N (Nominal/Cadena) para Municipio y :Q (Cuantitativo) para Altitud.
                                 alt.Tooltip(f'{Config.MUNICIPALITY_COL}:N', title='Municipio'), 
                                 alt.Tooltip(f'{Config.ALTITUDE_COL}:Q', format='.0f', title='Altitud (m)')
                             ]
@@ -614,7 +623,7 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                     fig_violin_mensual.update_layout(height=500)
                     st.plotly_chart(fig_violin_mensual, use_container_width=True)
             else:
-                st.warning("No hay datos mensuales para mostrar la distribución.")
+                st.warning("No hay datos mensuales para mostrar el gráfico.")
 
     # 5. ACUMULADA
     with sub_tab_acumulada:
@@ -640,7 +649,7 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                 [Config.PRECIPITATION_COL].mean()
                 .reset_index()
             )
-            # Re-mergeamos con metadata por si las moscas, aunque df_anual_rich ya debería tener la altitud
+            # Re-mergeamos con metadata para obtener Municipio y Altitud
             df_relacion = df_relacion.merge(
                 gdf_filtered[[Config.STATION_NAME_COL, Config.ALTITUDE_COL, Config.MUNICIPALITY_COL]].drop_duplicates(), 
                 on=Config.STATION_NAME_COL, 
@@ -718,30 +727,29 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
     gif_tab, temporal_tab, race_tab, anim_tab, compare_tab, kriging_tab = st.tabs(tab_names)
 
     with gif_tab:
-    st.subheader("Distribución Espacio-Temporal de la Lluvia en Antioquia")
-    if os.path.exists(Config.GIF_PATH):
-        col_controls, col_gif = st.columns([1, 3])
-        with col_controls:
-            if st.button(" Reiniciar Animación", key="reset_gif_button"): # Agregué un key para evitar warnings
-                st.session_state['gif_reload_key'] += 1
-                st.rerun()
-        with col_gif:
-            try:
-                # 💥 CORRECCIÓN DE LECTURA BINARIA ROBUSTA 💥
-                with open(Config.GIF_PATH, "rb") as file:
-                    contents = file.read()
-                    data_url = base64.b64encode(contents).decode("utf-8")
-                
-                st.markdown(
-                    f'<img src="data:image/gif;base64,{data_url}" alt="Animación PPAM"'
-                    f'style="width:70%; max-width: 600px;"'
-                    f'key="gif_display_{st.session_state["gif_reload_key"]}">',
-                    unsafe_allow_html=True
-                )
-            except Exception as e:
-                st.warning(f"Error al cargar/mostrar GIF: {e}")
-    else:
-        st.warning("No se encontró el archivo GIF en la ruta especificada.")
+        st.subheader("Distribución Espacio-Temporal de la Lluvia en Antioquia")
+        if os.path.exists(Config.GIF_PATH):
+            col_controls, col_gif = st.columns([1, 3])
+            with col_controls:
+                if st.button(" Reiniciar Animación", key="reset_gif_button"):
+                    st.session_state['gif_reload_key'] += 1
+                    st.rerun()
+            with col_gif:
+                try:
+                    # Leemos el GIF en modo binario para evitar problemas de PIL
+                    with open(Config.GIF_PATH, "rb") as file:
+                        contents = file.read()
+                        data_url = base64.b64encode(contents).decode("utf-8")
+                    st.markdown(
+                        f'<img src="data:image/gif;base64,{data_url}" alt="Animación PPAM"'
+                        f'style="width:70%; max-width: 600px;"'
+                        f'key="gif_display_{st.session_state["gif_reload_key"]}">',
+                        unsafe_allow_html=True
+                    )
+                except Exception as e:
+                    st.warning(f"Error al cargar/mostrar GIF: {e}")
+        else:
+            st.warning("No se encontró el archivo GIF en la ruta especificada.")
 
     with temporal_tab:
         st.subheader("Explorador Anual de Precipitación")
@@ -798,7 +806,6 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
                             colormap = cm.LinearColormap(colors=plt.cm.viridis.colors, vmin=min_val, vmax=max_val)
                             
                             for _, row in df_map_data.iterrows():
-                                # 💥 Incluye chart=False para evitar el APIException/ImageError 💥
                                 popup_object = generate_station_popup_html(row, df_anual_melted,
                                                                            include_chart=False, 
                                                                            df_monthly_filtered=df_monthly_filtered)
@@ -1152,7 +1159,7 @@ def display_anomalies_tab(df_long, df_monthly_filtered, stations_for_analysis):
             st.dataframe(humedos.rename(columns={Config.STATION_NAME_COL: 'Estación', 'anomalia': 'Anomalía (mm)', Config.PRECIPITATION_COL: 'Ppt. (mm)', 'precip_promedio_mes': 'Ppt. Media (mm)'}).round(0), use_container_width=True)
 
 
-def display_stats_tab(df_long, df_anual_melted, df_monthly_filtered, stations_for_analysis, gdf_filtered):
+def display_stats_tab(df_long, df_anual_melted, df_monthly_filtered, stations_for_analysis, gdf_filtered): # 💥 gdf_filtered AÑADIDO
     st.header("Estadísticas de Precipitación")
     display_filter_summary(
         total_stations_count=len(st.session_state.gdf_stations),
@@ -1222,7 +1229,13 @@ def display_stats_tab(df_long, df_anual_melted, df_monthly_filtered, stations_fo
             avg_availability = heatmap_df.stack().mean()
             logo_col, metric_col = st.columns([1, 5])
             with logo_col:
-                if os.path.exists(Config.LOGO_PATH): st.image(Config.LOGO_PATH, width=50)
+                if os.path.exists(Config.LOGO_PATH): 
+                    try:
+                        with open(Config.LOGO_PATH, "rb") as f:
+                            logo_bytes = f.read()
+                        st.image(logo_bytes, width=50)
+                    except Exception:
+                        pass
             with metric_col: st.metric(label=f"Disponibilidad Promedio Anual ({title_text})",
                                      value=f"{avg_availability:.1f}%")
             styled_df = heatmap_df.style.background_gradient(cmap=color_scale, axis=None, vmin=0,
