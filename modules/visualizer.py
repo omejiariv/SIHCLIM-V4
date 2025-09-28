@@ -1,7 +1,9 @@
 # modules/visualizer.py
 # --- Importaciones Estándar y de Terceros
+
 import streamlit as st
 import pandas as pd
+import base64
 import geopandas as gpd
 import altair as alt
 import folium
@@ -12,7 +14,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
 import os
-import base64
 import branca.colormap as cm
 import matplotlib.pyplot as plt
 import matplotlib.cm as mpl_cm
