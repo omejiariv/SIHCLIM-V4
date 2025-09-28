@@ -718,28 +718,30 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
     gif_tab, temporal_tab, race_tab, anim_tab, compare_tab, kriging_tab = st.tabs(tab_names)
 
     with gif_tab:
-        st.subheader("Distribución Espacio-Temporal de la Lluvia en Antioquia")
-        if os.path.exists(Config.GIF_PATH):
-            col_controls, col_gif = st.columns([1, 3])
-            with col_controls:
-                if st.button(" Reiniciar Animación"):
-                    st.session_state['gif_reload_key'] += 1
-                    st.rerun()
-            with col_gif:
-                try:
-                    with open(Config.GIF_PATH, "rb") as file:
-                        contents = file.read()
-                        data_url = base64.b64encode(contents).decode("utf-8")
-                    st.markdown(
-                        f'<img src="data:image/gif;base64,{data_url}" alt="Animación PPAM"'
-                        f'style="width:70%; max-width: 600px;"'
-                        f'key="gif_display_{st.session_state["gif_reload_key"]}">',
-                        unsafe_allow_html=True
-                    )
-                except Exception as e:
-                    st.warning(f"Error al cargar/mostrar GIF: {e}")
-        else:
-            st.warning("No se encontró el archivo GIF en la ruta especificada.")
+    st.subheader("Distribución Espacio-Temporal de la Lluvia en Antioquia")
+    if os.path.exists(Config.GIF_PATH):
+        col_controls, col_gif = st.columns([1, 3])
+        with col_controls:
+            if st.button(" Reiniciar Animación", key="reset_gif_button"): # Agregué un key para evitar warnings
+                st.session_state['gif_reload_key'] += 1
+                st.rerun()
+        with col_gif:
+            try:
+                # 💥 CORRECCIÓN DE LECTURA BINARIA ROBUSTA 💥
+                with open(Config.GIF_PATH, "rb") as file:
+                    contents = file.read()
+                    data_url = base64.b64encode(contents).decode("utf-8")
+                
+                st.markdown(
+                    f'<img src="data:image/gif;base64,{data_url}" alt="Animación PPAM"'
+                    f'style="width:70%; max-width: 600px;"'
+                    f'key="gif_display_{st.session_state["gif_reload_key"]}">',
+                    unsafe_allow_html=True
+                )
+            except Exception as e:
+                st.warning(f"Error al cargar/mostrar GIF: {e}")
+    else:
+        st.warning("No se encontró el archivo GIF en la ruta especificada.")
 
     with temporal_tab:
         st.subheader("Explorador Anual de Precipitación")
