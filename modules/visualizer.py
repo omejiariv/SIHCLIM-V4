@@ -727,14 +727,13 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
     gif_tab, temporal_tab, race_tab, anim_tab, compare_tab, kriging_tab = st.tabs(tab_names)
 
     with gif_tab:
-        st.subheader("Distribución Espacio-Temporal de la Lluvia en Antioquia")
-        
-        # 💥 CORRECCIÓN DE LA RUTA ABSOLUTA 💥
-        # Calcular la ruta absoluta asumiendo que Config.GIF_PATH = "assets/PPAM.gif"
-        # Esto navega desde el directorio actual del script (modules/) a la raíz (../) y luego a 'assets/'
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        gif_path_absolute = os.path.join(base_dir, '..', Config.GIF_PATH)
-
+    st.subheader("Distribución Espacio-Temporal de la Lluvia en Antioquia")
+    
+    # Usamos la ruta simple definida en Config
+    gif_path = Config.GIF_PATH
+    
+    # Verificamos si el archivo existe en la ruta simple (assets/PPAM.gif)
+    if os.path.exists(gif_path):
         col_controls, col_gif = st.columns([1, 3])
         
         with col_controls:
@@ -744,8 +743,8 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
                 
         with col_gif:
             try:
-                # Leemos el GIF en modo binario usando la ruta absoluta calculada
-                with open(gif_path_absolute, "rb") as file:
+                # Leemos el GIF en modo binario usando la ruta simple
+                with open(gif_path, "rb") as file:
                     contents = file.read()
                     data_url = base64.b64encode(contents).decode("utf-8")
                 
@@ -755,10 +754,11 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
                     f'key="gif_display_{st.session_state["gif_reload_key"]}">',
                     unsafe_allow_html=True
                 )
-            except FileNotFoundError:
-                st.warning(f"No se encontró el archivo GIF en la ruta especificada: {Config.GIF_PATH}")
             except Exception as e:
+                # Capturamos cualquier error de lectura (permisos, corrupción)
                 st.warning(f"Error al cargar/mostrar GIF: {e}")
+    else:
+        st.warning(f"No se encontró el archivo GIF en la ruta especificada: {Config.GIF_PATH}")
 
     with temporal_tab:
         st.subheader("Explorador Anual de Precipitación")
