@@ -623,7 +623,7 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                     fig_violin_mensual.update_layout(height=500)
                     st.plotly_chart(fig_violin_mensual, use_container_width=True)
             else:
-                st.warning("No hay datos mensuales para mostrar la distribución.")
+                st.warning("No hay datos mensuales para mostrar el gráfico.")
 
     # 5. ACUMULADA
     with sub_tab_acumulada:
@@ -742,6 +742,7 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
         with col_gif:
             try:
                 # 💥 SOLUCIÓN FINAL GIF: Referencia directa a URL con clave de caché única 💥
+                # Esto evita la lectura binaria directa (open()) que causa conflictos de permisos/inotify
                 st.markdown(
                     f'<img src="{gif_url}?{st.session_state["gif_reload_key"]}" alt="Animación PPAM"'
                     f'style="width:70%; max-width: 600px;">',
@@ -960,7 +961,6 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
                     variogram_model1 = st.selectbox("Modelo de Variograma para Mapa 1", variogram_options, key="var_model_1")
                 
                 st.markdown("---")
-                st.markdown("**Mapa 2**")
                 year2 = st.slider("Seleccione el año", min_year, max_year, max_year - 1 if max_year > min_year else max_year, key="interp_year2")
                 method2 = st.selectbox("Método de interpolación", options=interpolation_methods, index=1, key="interp_method2")
                 variogram_model2 = None
