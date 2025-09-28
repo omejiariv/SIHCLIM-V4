@@ -729,10 +729,12 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
     with gif_tab:
         st.subheader("Distribución Espacio-Temporal de la Lluvia en Antioquia")
         
-        # Intentamos cargar el GIF usando la ruta absoluta para máxima seguridad
-        gif_path_absolute = os.path.abspath(Config.GIF_PATH)
+        # 💥 CORRECCIÓN DE LA RUTA ABSOLUTA 💥
+        # Calcular la ruta absoluta asumiendo que Config.GIF_PATH = "assets/PPAM.gif"
+        # Esto navega desde el directorio actual del script (modules/) a la raíz (../) y luego a 'assets/'
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        gif_path_absolute = os.path.join(base_dir, '..', Config.GIF_PATH)
 
-        # 💥 Corrección para evitar el os.path.exists antes de FileNotFoundError 💥
         col_controls, col_gif = st.columns([1, 3])
         
         with col_controls:
@@ -742,7 +744,7 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
                 
         with col_gif:
             try:
-                # Leemos el GIF en modo binario
+                # Leemos el GIF en modo binario usando la ruta absoluta calculada
                 with open(gif_path_absolute, "rb") as file:
                     contents = file.read()
                     data_url = base64.b64encode(contents).decode("utf-8")
@@ -1622,7 +1624,6 @@ def display_correlation_tab(df_monthly_filtered, stations_for_analysis):
                     st.plotly_chart(fig_scatter_indices, use_container_width=True)
                 else:
                     st.warning("No hay suficientes datos superpuestos entre la estación y el índice para calcular la correlación.")
-
 
 def display_enso_tab(df_monthly_filtered, df_enso, gdf_filtered, stations_for_analysis):
     st.header("Análisis de Precipitación y el Fenómeno ENSO")
