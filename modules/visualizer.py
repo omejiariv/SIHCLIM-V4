@@ -623,7 +623,7 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                     fig_violin_mensual.update_layout(height=500)
                     st.plotly_chart(fig_violin_mensual, use_container_width=True)
             else:
-                st.warning("No hay datos mensuales para mostrar el gráfico.")
+                st.warning("No hay datos mensuales para mostrar la distribución.")
 
     # 5. ACUMULADA
     with sub_tab_acumulada:
@@ -727,39 +727,36 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
     gif_tab, temporal_tab, race_tab, anim_tab, compare_tab, kriging_tab = st.tabs(tab_names)
 
     with gif_tab:
-    st.subheader("Distribución Espacio-Temporal de la Lluvia en Antioquia")
-    
-    # Intentamos cargar el GIF usando la ruta absoluta para máxima seguridad
-    gif_path_absolute = os.path.abspath(Config.GIF_PATH)
-    
-    # 💥 Eliminamos la verificación condicional, confiando en el 'try/except' 💥
-    col_controls, col_gif = st.columns([1, 3])
-    
-    with col_controls:
-        if st.button(" Reiniciar Animación", key="reset_gif_button"):
-            # Aumentar la clave y forzar el rerun para limpiar el caché del GIF
-            st.session_state['gif_reload_key'] += 1
-            st.rerun()
-            
-    with col_gif:
-        try:
-            # Leemos el GIF en modo binario
-            with open(gif_path_absolute, "rb") as file:
-                contents = file.read()
-                data_url = base64.b64encode(contents).decode("utf-8")
-            
-            st.markdown(
-                f'<img src="data:image/gif;base64,{data_url}" alt="Animación PPAM"'
-                f'style="width:70%; max-width: 600px;"'
-                f'key="gif_display_{st.session_state["gif_reload_key"]}">',
-                unsafe_allow_html=True
-            )
-        except FileNotFoundError:
-            # Si FileNotFoundError ocurre, se maneja aquí.
-            st.warning(f"No se encontró el archivo GIF en la ruta especificada: {Config.GIF_PATH}")
-        except Exception as e:
-            # Para otros errores (corrupción de archivo, etc.)
-            st.warning(f"Error al cargar/mostrar GIF: {e}")
+        st.subheader("Distribución Espacio-Temporal de la Lluvia en Antioquia")
+        
+        # Intentamos cargar el GIF usando la ruta absoluta para máxima seguridad
+        gif_path_absolute = os.path.abspath(Config.GIF_PATH)
+
+        # 💥 Corrección para evitar el os.path.exists antes de FileNotFoundError 💥
+        col_controls, col_gif = st.columns([1, 3])
+        
+        with col_controls:
+            if st.button(" Reiniciar Animación", key="reset_gif_button"):
+                st.session_state['gif_reload_key'] += 1
+                st.rerun()
+                
+        with col_gif:
+            try:
+                # Leemos el GIF en modo binario
+                with open(gif_path_absolute, "rb") as file:
+                    contents = file.read()
+                    data_url = base64.b64encode(contents).decode("utf-8")
+                
+                st.markdown(
+                    f'<img src="data:image/gif;base64,{data_url}" alt="Animación PPAM"'
+                    f'style="width:70%; max-width: 600px;"'
+                    f'key="gif_display_{st.session_state["gif_reload_key"]}">',
+                    unsafe_allow_html=True
+                )
+            except FileNotFoundError:
+                st.warning(f"No se encontró el archivo GIF en la ruta especificada: {Config.GIF_PATH}")
+            except Exception as e:
+                st.warning(f"Error al cargar/mostrar GIF: {e}")
 
     with temporal_tab:
         st.subheader("Explorador Anual de Precipitación")
@@ -1169,7 +1166,7 @@ def display_anomalies_tab(df_long, df_monthly_filtered, stations_for_analysis):
             st.dataframe(humedos.rename(columns={Config.STATION_NAME_COL: 'Estación', 'anomalia': 'Anomalía (mm)', Config.PRECIPITATION_COL: 'Ppt. (mm)', 'precip_promedio_mes': 'Ppt. Media (mm)'}).round(0), use_container_width=True)
 
 
-def display_stats_tab(df_long, df_anual_melted, df_monthly_filtered, stations_for_analysis, gdf_filtered): # 💥 gdf_filtered AÑADIDO
+def display_stats_tab(df_long, df_anual_melted, df_monthly_filtered, stations_for_analysis, gdf_filtered):
     st.header("Estadísticas de Precipitación")
     display_filter_summary(
         total_stations_count=len(st.session_state.gdf_stations),
@@ -1613,7 +1610,7 @@ def display_correlation_tab(df_monthly_filtered, stations_for_analysis):
                     if p_value < 0.05:
                         st.success("La correlación es estadísticamente significativa.")
                     else:
-                        st.warning(f"La correlación no es estadísticamente significativa (p>={p_value:.4f}).")
+                        st.warning(f"La correlación no es estadísticamente significativa.")
                         
                     fig_scatter_indices = px.scatter(
                         df_merged_indices, x=index_col_name, y=Config.PRECIPITATION_COL,
