@@ -519,7 +519,7 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                             point_chart = base_chart.mark_point(filled=True, size=60).encode(color=color_encoding)
                             final_chart = point_chart
                             
-                        st.altair_chart(final_chart.properties(height=500, title=f"Serie de Precipitación Mensual ({year_min} - {year_max})").interactive(), width='stretch')
+                        st.altair_chart(final_chart.properties(height=500, title=f"Serie de Precipitación Mensual ({year_min} - {year_max})").interactive(), use_container_width=True)
                     else:
                         st.subheader("Distribución de la Precipitación Mensual")
                         fig_box_monthly = px.box(df_monthly_rich, x=Config.MONTH_COL, # <-- USAR df_monthly_rich
