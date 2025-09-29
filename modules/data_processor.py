@@ -83,7 +83,6 @@ def complete_series(_df):
     all_completed_dfs = []
     station_list = _df[Config.STATION_NAME_COL].unique()
     
-    # --- CORRECCIÓN: Identificar qué columnas de metadatos existen para conservarlas ---
     metadata_cols_to_keep = [
         col for col in [Config.MUNICIPALITY_COL, Config.ALTITUDE_COL, Config.REGION_COL, Config.CELL_COL] 
         if col in _df.columns
@@ -94,11 +93,9 @@ def complete_series(_df):
     for i, station in enumerate(station_list):
         df_station = _df[_df[Config.STATION_NAME_COL] == station].copy()
         
-        # --- CORRECCIÓN: Capturar los metadatos de la estación actual ---
+        station_metadata = None
         if not df_station.empty and metadata_cols_to_keep:
             station_metadata = df_station[metadata_cols_to_keep].iloc[0]
-        else:
-            station_metadata = None
 
         df_station[Config.DATE_COL] = pd.to_datetime(df_station[Config.DATE_COL])
         df_station.set_index(Config.DATE_COL, inplace=True)
@@ -115,7 +112,6 @@ def complete_series(_df):
         df_resampled[Config.ORIGIN_COL] = df_resampled[Config.ORIGIN_COL].fillna('Completado')
         df_resampled[Config.STATION_NAME_COL] = station
         
-        # --- CORRECCIÓN: Asignar los metadatos guardados a la nueva tabla remuestreada ---
         if station_metadata is not None:
             for col_name, value in station_metadata.items():
                 df_resampled[col_name] = value
@@ -141,7 +137,6 @@ def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded
     if any(df is None for df in [df_stations_raw, df_precip_raw, gdf_municipios]):
         return None, None, None, None
         
-    #--- PROCESAMIENTO DE ESTACIONES (ΜΑΡΑ) ---
     lon_col = next((col for col in df_stations_raw.columns if 'longitud' in col.lower() or 'lon' in col.lower()), None)
     lat_col = next((col for col in df_stations_raw.columns if 'latitud' in col.lower() or 'lat' in col.lower()), None)
     if not all([lon_col, lat_col]):
@@ -165,7 +160,6 @@ def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded
     if Config.ALTITUDE_COL in gdf_stations.columns:
         gdf_stations[Config.ALTITUDE_COL] = standardize_numeric_column(gdf_stations[Config.ALTITUDE_COL])
 
-    #--- PROCESAMIENTO DE PRECIPITACIÓN (LARGO)
     df_precip_raw.columns = df_precip_raw.columns.str.lower()
     columns_to_exclude = [
         Config.DATE_COL, Config.ENSO_ONI_COL, Config.SOI_COL, Config.IOD_COL,
@@ -198,7 +192,6 @@ def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded
     df_long[Config.YEAR_COL] = df_long[Config.DATE_COL].dt.year
     df_long[Config.MONTH_COL] = df_long[Config.DATE_COL].dt.month
 
-    # Mapping station IDs to names
     id_estacion_col_name = 'id_estacio'
     if id_estacion_col_name not in gdf_stations.columns:
         st.error("No se encontró la columna 'id_estacio' en el archivo de estaciones.")
@@ -210,25 +203,20 @@ def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded
     df_long[Config.STATION_NAME_COL] = df_long['id_estacion'].map(station_mapping)
     df_long.dropna(subset=[Config.STATION_NAME_COL], inplace=True)
 
-    # Merge station metadata (coordinates, altitude, etc.)
     station_metadata_cols = [
         Config.STATION_NAME_COL, Config.MUNICIPALITY_COL, Config.REGION_COL,
         Config.ALTITUDE_COL, Config.CELL_COL, Config.LATITUDE_COL, Config.LONGITUDE_COL, Config.ET_COL
     ]
     existing_metadata_cols = [col for col in station_metadata_cols if col in gdf_stations.columns]
 
-    # --- CORRECCIÓN DEFINITIVA: Unión robusta de metadatos ---
     stations_metadata_df = gdf_stations[existing_metadata_cols].drop_duplicates(subset=[Config.STATION_NAME_COL]).copy()
     key_col = Config.STATION_NAME_COL
     
-    # Limpiamos la llave de unión en AMBOS dataframes para asegurar la coincidencia
     df_long[key_col] = df_long[key_col].astype(str).str.strip()
     stations_metadata_df[key_col] = stations_metadata_df[key_col].astype(str).str.strip()
     
-    # Realizamos la unión
     df_long = pd.merge(df_long, stations_metadata_df, on=key_col, how='left')
     
-    # -- PROCESAMIENTO DE ENSO/ÍNDICES (SEPARADO) ---
     enso_cols = ['id', Config.DATE_COL, Config.ENSO_ONI_COL, 'temp_sst', 'temp_media']
     existing_enso_cols = [col for col in enso_cols if col in df_precip_raw.columns]
     df_enso = df_precip_raw[existing_enso_cols].drop_duplicates().copy()
@@ -242,9 +230,7 @@ def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded
             
     return gdf_stations, gdf_municipios, df_long, df_enso
 
-#--- FUNCIONES PARA DEM
 def extract_elevation_from_dem(gdf_stations, dem_data_source):
-    """Extrae la elevación de un DEM para cada estación."""
     if dem_data_source is None:
         return gdf_stations
     
@@ -273,7 +259,6 @@ def extract_elevation_from_dem(gdf_stations, dem_data_source):
 
 @st.cache_resource
 def download_and_load_remote_dem(url):
-    """Simula la descarga de un DEM remoto."""
     if not url:
         raise ValueError("La URL del servidor DEM no está configurada.")
     st.info(f"Simulación de descarga remota. En un entorno real, se usaría un archivo temporal. Usando '{url}' como marcador.")
