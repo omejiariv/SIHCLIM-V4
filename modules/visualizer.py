@@ -432,6 +432,31 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
         df_monthly_rich = pd.merge(df_monthly_rich, gdf_metadata, on=key_col, how='left')
         df_anual_rich = pd.merge(df_anual_rich, gdf_metadata, on=key_col, how='left')
     
+    # --- INICIO DEL CÓDIGO DE DEPURACIÓN (TEMPORAL) ---
+    st.subheader("🕵️‍♂️ Vista de Depuración de Datos")
+    st.warning("Esto es un panel de diagnóstico temporal. Se puede eliminar después de resolver el problema.")
+    st.write("A continuación se comparan las tablas de datos que alimentan los gráficos. La tabla **Anual** funciona, la **Mensual** no. Buscamos las columnas 'municipio' y 'alt_est'.")
+
+    # 1. Inspeccionar los datos ANUALES (los que funcionan)
+    st.markdown("---")
+    st.write("#### 1. Tabla Anual (`df_anual_rich`)")
+    if not df_anual_rich.empty:
+        columnas_a_revisar_anual = [col for col in [Config.STATION_NAME_COL, Config.MUNICIPALITY_COL, Config.ALTITUDE_COL] if col in df_anual_rich.columns]
+        st.dataframe(df_anual_rich[columnas_a_revisar_anual].head(10))
+    else:
+        st.error("La tabla de datos anuales está vacía.")
+
+    # 2. Inspeccionar los datos MENSUALES (los que fallan)
+    st.markdown("---")
+    st.write("#### 2. Tabla Mensual (`df_monthly_rich`)")
+    if not df_monthly_rich.empty:
+        columnas_a_revisar_mensual = [col for col in [Config.STATION_NAME_COL, Config.MUNICIPALITY_COL, Config.ALTITUDE_COL] if col in df_monthly_rich.columns]
+        st.dataframe(df_monthly_rich[columnas_a_revisar_mensual].head(10))
+    else:
+        st.error("La tabla de datos mensuales está vacía.")
+    st.markdown("---")
+    # --- FIN DEL CÓDIGO DE DEPURACIÓN ---
+    
     # --- PESTAÑAS DE VISUALIZACIÓN ---
     sub_tab_anual, sub_tab_mensual, sub_tab_comparacion, sub_tab_distribucion, \
     sub_tab_acumulada, sub_tab_altitud, sub_tab_regional = \
