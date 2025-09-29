@@ -434,7 +434,7 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                     .properties(title=f'Precipitación Anual por Estación ({year_min} - {year_max})')
                     .interactive()
                 )
-                st.altair_chart(chart_anual, width='stretch')
+                st.altair_chart(chart_anual, use_container_width=True)
             else:
                 st.warning("No hay datos anuales para mostrar la serie.")
                 
