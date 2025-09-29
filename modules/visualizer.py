@@ -1,7 +1,10 @@
 # modules/visualizer.py
+
 # --- Importaciones Estándar y de Terceros
+
 import streamlit as st
 import pandas as pd
+import base64
 import geopandas as gpd
 import altair as alt
 import folium
@@ -12,7 +15,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
 import os
-import base64
 import branca.colormap as cm
 import matplotlib.pyplot as plt
 import matplotlib.cm as mpl_cm
@@ -22,22 +24,26 @@ import pymannkendall as mk
 from prophet.plot import plot_plotly
 import io
 
-# --- Importaciones de Módulos Propios
+# --- Importaciones de Módulos Propios ---
 from modules.analysis import calculate_spi, calculate_spei, calculate_monthly_anomalies, calculate_percentiles_and_extremes
 from modules.config import Config
 from modules.utils import add_folium_download_button
 from modules.interpolation import create_interpolation_surface
+# Re-importaciones para funciones de tendencia y pronóstico (asumiendo que existen en esos módulos)
 from modules.forecasting import (
     generate_sarima_forecast, generate_prophet_forecast,
     get_decomposition_results, create_acf_chart, create_pacf_chart
 )
 
 # --- DISPLAY UTILS ---
+
 def display_filter_summary(total_stations_count, selected_stations_count, year_range, selected_months_count):
+    """Muestra una caja informativa con un resumen de los filtros aplicados."""
+    #Formatear el rango de años
     if isinstance(year_range, tuple) and len(year_range) == 2:
-        year_text = f"{year_range[0]}-{year_range[1]}"
+        year_text=f"{year_range[0]}-{year_range[1]}"
     else:
-        year_text = "N/A"
+        year_text ="N/A"
     summary_text = (
         f"**Estaciones Seleccionadas:** {selected_stations_count} de {total_stations_count} | "
         f"**Período:** {year_text} | "
@@ -49,7 +55,10 @@ def get_map_options():
     return {
         "CartoDB Positron (Predeterminado)": {"tiles": "cartodbpositron", "attr": '&copy; <a href="https://carto.com/attributions">CartoDB</a>', "overlay": False},
         "OpenStreetMap": {"tiles": "OpenStreetMap", "attr": '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors', "overlay": False},
-        "Topografía (Open TopoMap)": {"tiles": "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", "attr": 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">Open Topo Map</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)', "overlay": False},
+        "Topografía (OpenTopoMap)": {"tiles": "https://{s}.tile.opentomap.org/{z}/{x}/{y}.png", "attr": 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">Open Topo Map</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)', "overlay": False},
+        "Relieve y Océanos (GEBCO)": {"url": "https://www.gebco.net/data_and_products/gebco_web_services/web_map_service/web_map_service.php", "layers": "GEBCO_2021_Surface", "transparent": False, "attr": "GEBCO 2021", "overlay": True},
+        "Mapa de Colombia (WMS IDEAM)": {"url": "https://geoservicios.ideam.gov.co/geoserver/ideam/wms", "layers": "ideam:col_admin", "transparent": True, "attr": "IDEAM", "overlay": True},
+        "Cobertura de la Tierra (WMS IGAC)": {"url": "https://servicios.igac.gov.co/server/services/IDEAM/IDEAM_Cobertura_Corine/MapServer/WMSServer", "layers": "IDEAM_Cobertura_Corine_Web", "transparent": True, "attr": "IGAC", "overlay": True},
     }
 
 def display_map_controls(container_object, key_prefix):
@@ -57,39 +66,160 @@ def display_map_controls(container_object, key_prefix):
     base_maps = {k: v for k, v in map_options.items() if not v.get("overlay")}
     overlays = {k: v for k, v in map_options.items() if v.get("overlay")}
     selected_base_map_name = container_object.selectbox("Seleccionar Mapa Base",
-                                                      list(base_maps.keys()), key=f"{key_prefix}_base_map")
-    default_overlays = ["Mapa de Colombia (WMS IDEAM)"] if "Mapa de Colombia (WMS IDEAM)" in overlays else []
+                                                       list(base_maps.keys()), key=f"{key_prefix}_base_map")
+    default_overlays = ["Mapa de Colombia (WMS IDEAM)"]
     selected_overlays_names = container_object.multiselect("Seleccionar Capas Adicionales",
-                                                         list(overlays.keys()), default=default_overlays, key=f"{key_prefix}_overlays")
+                                                          list(overlays.keys()), default=default_overlays, key=f"{key_prefix}_overlays")
     selected_overlays_config = [overlays[k] for k in selected_overlays_names]
     return base_maps[selected_base_map_name], selected_overlays_config
-    
-def generate_station_popup_html(row_series, df_anual_melted):
-    station_name = row_series.get(Config.STATION_NAME_COL, 'N/A')
-    
-    # Extraer los valores de la serie
-    municipio = row_series.get(Config.MUNICIPALITY_COL, 'N/A')
-    altitud = row_series.get(Config.ALTITUDE_COL, 'N/A')
 
-    # Lógica para calcular el promedio anual
-    precip_media_anual_text = "N/A"
-    if not df_anual_melted.empty:
-        station_annual_data = df_anual_melted[df_anual_melted[Config.STATION_NAME_COL] == station_name]
-        if not station_annual_data.empty:
-            mean_precip = station_annual_data[Config.PRECIPITATION_COL].mean()
-            precip_media_anual_text = f"{mean_precip:.0f} mm"
+def create_enso_chart(enso_data):
+    if enso_data.empty or Config.ENSO_ONI_COL not in enso_data.columns:
+        return go.Figure()
+    data = enso_data.copy().sort_values(Config.DATE_COL)
+    data.dropna(subset=[Config.ENSO_ONI_COL], inplace=True)
+    if data.empty:
+        return go.Figure()
+    conditions = [data[Config.ENSO_ONI_COL] >= 0.5, data[Config.ENSO_ONI_COL] <= -0.5]
+    phases = ['El Niño', 'La Niña']
+    colors = ['red', 'blue']
+    data['phase'] = np.select(conditions, phases, default='Neutral')
+    data['color'] = np.select(conditions, colors, default='grey')
+    y_range = [data[Config.ENSO_ONI_COL].min() - 0.5, data[Config.ENSO_ONI_COL].max() + 0.5]
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=data[Config.DATE_COL], y=[y_range[1] - y_range[0]] * len(data),
+        base=y_range[0], marker_color=data['color'], width=30*24*60*60*1000,
+        opacity=0.3, hoverinfo='none', showlegend=False
+    ))
+    legend_map = {'El Niño': 'red', 'La Niña': 'blue', 'Neutral': 'grey'}
+    for phase, color in legend_map.items():
+        fig.add_trace(go.Scatter(
+            x=[None], y=[None], mode='markers',
+            marker=dict(size=15, color=color, symbol='square', opacity=0.5),
+            name=phase, showlegend=True
+        ))
+    fig.add_trace(go.Scatter(
+        x=data[Config.DATE_COL], y=data[Config.ENSO_ONI_COL],
+        mode='lines', name='Anomalía ONI', line=dict(color='black', width=2), showlegend=True
+    ))
+    fig.add_hline(y=0.5, line_dash="dash", line_color="red")
+    fig.add_hline(y=-0.5, line_dash="dash", line_color="blue")
+    fig.update_layout(
+        height=600, title="Fases del Fenómeno ENSO y Anomalía ONI",
+        yaxis_title="Anomalía ONI (°C)", xaxis_title="Fecha", showlegend=True,
+        legend_title_text='Fase', yaxis_range=y_range
+    )
+    return fig
 
-    popup_html = f"""
-    <h4>{station_name}</h4>
-    <p><b>Municipio:</b> {municipio}</p>
-    <p><b>Altitud:</b> {altitud} m</p>
-    <p><b>Promedio Anual:</b> {precip_media_anual_text}</p>
-    """
-    return folium.Popup(popup_html, max_width=300)
+def create_anomaly_chart(df_plot):
+    if df_plot.empty:
+        return go.Figure()
+    df_plot['color'] = np.where(df_plot['anomalia'] < 0, 'red', 'blue')
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=df_plot[Config.DATE_COL], y=df_plot['anomalia'],
+        marker_color=df_plot['color'], name='Anomalía de Precipitación'
+    ))
+    if Config.ENSO_ONI_COL in df_plot.columns:
+        df_plot_enso = df_plot.dropna(subset=[Config.ENSO_ONI_COL])
+        # Highlight El Niño periods
+        nino_periods = df_plot_enso[df_plot_enso[Config.ENSO_ONI_COL] >= 0.5]
+        for _, row in nino_periods.iterrows():
+            fig.add_vrect(x0=row[Config.DATE_COL] - pd.DateOffset(days=15),
+                          x1=row[Config.DATE_COL] + pd.DateOffset(days=15),
+                          fillcolor="red", opacity=0.15, layer="below", line_width=0)
 
+        # Highlight La Niña periods
+        nina_periods = df_plot_enso[df_plot_enso[Config.ENSO_ONI_COL] <= -0.5]
+        for _, row in nina_periods.iterrows():
+            fig.add_vrect(x0=row[Config.DATE_COL] - pd.DateOffset(days=15),
+                          x1=row[Config.DATE_COL] + pd.DateOffset(days=15),
+                          fillcolor="blue", opacity=0.15, layer="below", line_width=0)
+        
+        # Add hidden traces for legend
+        fig.add_trace(go.Scatter(x=[None], y=[None], mode='markers',
+                                 marker=dict(symbol='square', color='rgba(255, 0, 0, 0.3)'),
+                                 name='Fase El Niño'))
+        fig.add_trace(go.Scatter(x=[None], y=[None], mode='markers',
+                                 marker=dict(symbol='square', color='rgba(0, 0, 255, 0.3)'),
+                                 name='Fase La Niña'))
+                                 
+    fig.update_layout(
+        height=600, title="Anomalías Mensuales de Precipitación y Fases ENSO",
+        yaxis_title=f"Anomalía de Precipitación (mm)", xaxis_title="Fecha", showlegend=True
+    )
+    return fig
+
+#--- FUNCIÓN AUXILIAR PARA POPUP ---
+def generate_station_popup_html(row, df_anual_melted, include_chart=False, df_monthly_filtered=None):
+    """Robustly generates the HTML content for a station's popup."""
+    full_html = ""
+    station_name = row.get(Config.STATION_NAME_COL, 'N/A')
+    try:
+        # Get the year range from the session state
+        year_range_val = st.session_state.get('year_range', (2000, 2020))
+        if isinstance(year_range_val, tuple) and len(year_range_val) == 2 and isinstance(year_range_val[0], int):
+            year_min, year_max = year_range_val
+        else: # Fallback for other modes
+            year_min, year_max = st.session_state.get('year_range_single', (2000, 2020))
+        total_years_in_period = year_max - year_min + 1
+        
+        # Calculate statistics
+        df_station_data = df_anual_melted[df_anual_melted[Config.STATION_NAME_COL] == station_name]
+        if not df_station_data.empty:
+            summary_data = df_station_data.groupby(Config.STATION_NAME_COL).agg(
+                precip_media_anual=('precipitation', 'mean'),
+                años_validos=('precipitation', 'count')
+            ).iloc[0]
+            valid_years = int(summary_data.get('años_validos', 0))
+            precip_media_anual = summary_data.get('precip_media_anual', 0)
+        else:
+            valid_years = 0
+            precip_media_anual = 0
+            
+        # Generate the text part of the HTML
+        text_html = f"""
+        <h4>{station_name}</h4>
+        <p><b>Municipio:</b> {row.get(Config.MUNICIPALITY_COL, 'N/A')}</p>
+        <p><b>Altitud:</b> {row.get(Config.ALTITUDE_COL, 'N/A')} m</p>
+        <p><b>Promedio Anual:</b> {precip_media_anual:.0f} mm</p>
+        <small>(Calculado con <b>{valid_years}</b> de <b>{total_years_in_period}</b> años del período)</small>
+        """
+        full_html = text_html
+        
+        # Try to generate the chart part of the HTML (Minigráficos)
+        chart_html = ""
+        if include_chart and df_monthly_filtered is not None:
+            df_station_monthly_avg = df_monthly_filtered[df_monthly_filtered[Config.STATION_NAME_COL] == station_name]
+            if not df_station_monthly_avg.empty:
+                df_monthly_avg = df_station_monthly_avg.groupby(Config.MONTH_COL)[Config.PRECIPITATION_COL].mean().reset_index()
+                if not df_monthly_avg.empty:
+                    fig = go.Figure(data=[go.Bar(x=df_monthly_avg[Config.MONTH_COL], y=df_monthly_avg[Config.PRECIPITATION_COL])])
+                    fig.update_layout(title_text=f"Ppt. Mensual Media", xaxis_title="Mes", yaxis_title="Ppt. (mm)",
+                                      height=250, width=350, margin=dict(t=40, b=20, l=20, r=20))
+                    chart_html = fig.to_html(full_html=False, include_plotlyjs='cdn')
+                    
+        # Combine text and chart if chart was created successfully
+        if chart_html:
+            sanitized_chart_html = chart_html.replace('"', '&quot;')
+            full_html = text_html + "<hr>" + f'<iframe srcdoc="{sanitized_chart_html}" width="370" height="270" frameborder="0"></iframe>'
+            
+    except Exception as e:
+        st.warning(f"Could not generate the full popup content for '{station_name}'. Reason: {e}")
+        if 'text_html' in locals():
+            full_html = text_html
+        else:
+            full_html = f"<h4>{station_name}</h4><p>Error loading popup data.</p>"
+            
+    return folium.Popup(full_html, max_width=450)
+
+#--- CHART AND MAP HELPER FUNCTIONS --
 def create_folium_map(location, zoom, base_map_config, overlays_config, fit_bounds_data=None):
+    """Creates a Folium map with robust centering logic."""
     m = folium.Map(location=location, zoom_start=zoom, tiles=base_map_config.get("tiles", "OpenStreetMap"),
                    attr=base_map_config.get("attr", None))
+                   
     if fit_bounds_data is not None and not fit_bounds_data.empty:
         if len(fit_bounds_data) > 1:
             bounds = fit_bounds_data.total_bounds
@@ -99,32 +229,28 @@ def create_folium_map(location, zoom, base_map_config, overlays_config, fit_boun
             point = fit_bounds_data.iloc[0].geometry
             m.location = [point.y, point.x]
             m.zoom_start = 12
-    # Add overlays if any
+            
     for layer_config in overlays_config:
         if layer_config.get("url"):
-            WmsTileLayer(
-                url=layer_config["url"],
-                layers=layer_config["layers"],
-                fmt='image/png',
-                transparent=layer_config.get("transparent", True),
-                overlay=True,
-                control=True,
-                name=layer_config.get("attr", "Overlay")
-            ).add_to(m)
+            WmsTileLayer(url=layer_config["url"], layers=layer_config["layers"], fmt='image/png',
+                         transparent=layer_config.get("transparent", False), overlay=True, control=True,
+                         name=layer_config.get("attr", "Overlay")).add_to(m)
+                         
     return m
 
 #--- MAIN TAB DISPLAY FUNCTIONS ---
-
 def display_welcome_tab():
     st.header("Bienvenido al Sistema de Información de Lluvias y Clima")
     st.markdown(Config.WELCOME_TEXT, unsafe_allow_html=True)
     if os.path.exists(Config.LOGO_PATH):
         try:
+            # CORRECCIÓN: Leemos la imagen en binario para evitar UnidentifiedImageError
             with open(Config.LOGO_PATH, "rb") as f:
                 logo_bytes = f.read()
             st.image(logo_bytes, width=250, caption="Corporación Cuenca Verde")
         except Exception:
             st.warning("No se pudo cargar el logo de bienvenida.")
+
 
 def display_spatial_distribution_tab(gdf_filtered, stations_for_analysis, df_anual_melted, df_monthly_filtered):
     st.header("Distribución espacial de las Estaciones de Lluvia")
@@ -134,35 +260,69 @@ def display_spatial_distribution_tab(gdf_filtered, stations_for_analysis, df_anu
         year_range=st.session_state.year_range,
         selected_months_count=len(st.session_state.meses_numeros)
     )
+    if not stations_for_analysis:
+        st.warning("Por favor, seleccione al menos una estación para ver esta sección.")
+        return
+    
+    gdf_display = gdf_filtered.copy()
+    if not df_anual_melted.dropna(subset=[Config.PRECIPITATION_COL]).empty:
+        summary_stats = (
+            df_anual_melted.groupby(Config.STATION_NAME_COL)[Config.PRECIPITATION_COL]
+            .agg(['mean', 'count']).reset_index()
+        )
+        summary_stats.rename(columns={'mean': 'precip_media_anual', 'count': 'años_validos'}, inplace=True)
+        gdf_display = gdf_display.merge(summary_stats, on=Config.STATION_NAME_COL, how='left')
+    else:
+        gdf_display['precip_media_anual'] = np.nan
+        gdf_display['años_validos'] = 0
+    
+    gdf_display['precip_media_anual'] = gdf_display['precip_media_anual'].fillna(0)
+    gdf_display['años_validos'] = gdf_display['años_validos'].fillna(0).astype(int)
     
     sub_tab_mapa, sub_tab_grafico = st.tabs(["Mapa Interactivo", "Gráfico de Disponibilidad de Datos"])
-
     with sub_tab_mapa:
-        if not gdf_filtered.empty:
-            base_map_config, overlays_config = display_map_controls(st, "dist_esp")
-            
-            m = create_folium_map(
-                location=[4.57, -74.29], # Default center for Colombia
-                zoom=5,
-                base_map_config=base_map_config,
-                overlays_config=overlays_config,
-                fit_bounds_data=gdf_filtered
-            )
-            
-            marker_cluster = MarkerCluster(name='Estaciones').add_to(m)
-            
-            for index, row in gdf_filtered.iterrows():
-                popup = generate_station_popup_html(row, df_anual_melted)
-                folium.Marker(
-                    location=[row.geometry.y, row.geometry.x],
-                    tooltip=row[Config.STATION_NAME_COL],
-                    popup=popup
-                ).add_to(marker_cluster)
-
-            folium.LayerControl().add_to(m)
-            folium_static(m, height=500, width="100%")
-        else:
-            st.warning("No hay estaciones seleccionadas para mostrar en el mapa.")
+        controls_col, map_col = st.columns([1, 3])
+        with controls_col:
+            st.subheader("Controles del Mapa")
+            selected_base_map_config, selected_overlays_config = display_map_controls(st, "dist_esp")
+            if not gdf_display.empty:
+                st.markdown("---")
+                if os.path.exists(Config.LOGO_PATH):
+                    try:
+                        with open(Config.LOGO_PATH, "rb") as f:
+                            logo_bytes = f.read()
+                        st.image(logo_bytes, width=70)
+                    except Exception:
+                        st.warning("No se pudo cargar el logo.")
+                st.metric("Estaciones en Vista", len(gdf_display))
+                st.markdown("---")
+        with map_col:
+            if not gdf_display.empty:
+                m = create_folium_map(
+                    location=[4.57, -74.29], # Default center
+                    zoom=5,
+                    base_map_config=selected_base_map_config,
+                    overlays_config=selected_overlays_config,
+                    fit_bounds_data=gdf_display
+                )
+                if 'gdf_municipios' in st.session_state and st.session_state.gdf_municipios is not None:
+                    folium.GeoJson(st.session_state.gdf_municipios.to_json(), name='Municipios').add_to(m)
+                    
+                marker_cluster = MarkerCluster(name='Estaciones').add_to(m)
+                for _, row in gdf_display.iterrows():
+                    popup_object = generate_station_popup_html(row, df_anual_melted, include_chart=False)
+                    folium.Marker(
+                        location=[row['geometry'].y, row['geometry'].x],
+                        tooltip=row[Config.STATION_NAME_COL],
+                        popup=popup_object
+                    ).add_to(marker_cluster)
+                    
+                folium.LayerControl().add_to(m)
+                m.add_child(MiniMap(toggle_display=True))
+                folium_static(m, height=450, width="100%")
+                add_folium_download_button(m, "mapa_distribucion.html")
+            else:
+                st.warning("No hay estaciones seleccionadas para mostrar en el mapa.")
                 
         with sub_tab_grafico:
             st.subheader("Disponibilidad y Composición de Datos por Estación")
@@ -215,6 +375,7 @@ def display_spatial_distribution_tab(gdf_filtered, stations_for_analysis, df_anu
             else:
                 st.warning("No hay estaciones seleccionadas para mostrar el gráfico.")
 
+
 def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analysis, gdf_filtered):
     st.header("Visualizaciones de Precipitación")
     display_filter_summary(
@@ -238,34 +399,8 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
     metadata_cols = [Config.STATION_NAME_COL, Config.MUNICIPALITY_COL, Config.ALTITUDE_COL]
     gdf_metadata = gdf_filtered[metadata_cols].drop_duplicates(subset=[Config.STATION_NAME_COL]).copy() 
     
-    df_anual_rich = df_anual_melted.copy()
-    df_monthly_rich = df_monthly_filtered.copy()
-
-    all_metadata_cols = [
-        Config.STATION_NAME_COL, 
-        Config.MUNICIPALITY_COL, 
-        Config.ALTITUDE_COL
-    ]
-    
-    # Verificamos cuáles de estas columnas realmente existen en el dataframe filtrado
-    existing_metadata_cols = [col for col in all_metadata_cols if col in gdf_filtered.columns]
-
-    # Si hay metadatos para agregar (aparte del nombre de la estación), procedemos con la fusión
-    if len(existing_metadata_cols) > 1:
-
-        # Extraemos los metadatos y eliminamos duplicados de estaciones
-        gdf_metadata = gdf_filtered[existing_metadata_cols].drop_duplicates(subset=[Config.STATION_NAME_COL]).copy()
-
-        # --- CLAVE DE LA SOLUCIÓN: LIMPIEZA DE LAS LLAVES DE UNIÓN --- 
-        # Aseguramos que la columna 'nom_est' sea de tipo texto (string) y sin espacios extra en AMBOS dataframes
-        key_col = Config.STATION_NAME_COL
-        df_monthly_rich[key_col] = df_monthly_rich[key_col].astype(str).str.strip()
-        df_anual_rich[key_col] = df_anual_rich[key_col].astype(str).str.strip()
-        gdf_metadata[key_col] = gdf_metadata[key_col].astype(str).str.strip()
-
-        # Realizamos el merge, que ahora debería funcionar correctamente
-        df_monthly_rich = pd.merge(df_monthly_rich, gdf_metadata, on=key_col, how='left')
-        df_anual_rich = pd.merge(df_anual_rich, gdf_metadata, on=key_col, how='left')
+    df_anual_rich = df_anual_melted.merge(gdf_metadata, on=Config.STATION_NAME_COL, how='left')
+    df_monthly_rich = df_monthly_filtered.merge(gdf_metadata, on=Config.STATION_NAME_COL, how='left')
     
     # --- PESTAÑAS DE VISUALIZACIÓN ---
     sub_tab_anual, sub_tab_mensual, sub_tab_comparacion, sub_tab_distribucion, \
@@ -361,12 +496,12 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                             x=alt.X(f'{Config.DATE_COL}:T', title='Fecha'),
                             y=alt.Y(f'{Config.PRECIPITATION_COL}:Q', title='Precipitación (mm)'),
                             tooltip=[
-                                alt.Tooltip(f'{Config.DATE_COL}:T', format='%Y-%m', title='Fecha'),
-                                alt.Tooltip(f'{Config.PRECIPITATION_COL}:Q', format='.0f', title='Ppt. Mensual (mm)'),
-                                alt.Tooltip(f'{Config.STATION_NAME_COL}:N', title='Estación'),
-                                alt.Tooltip(Config.ORIGIN_COL, title='Origen'),
+                                alt.Tooltip(Config.DATE_COL, format='%Y-%m'),
+                                alt.Tooltip(f'{Config.PRECIPITATION_COL}:Q', format='.0f', title='Ppt. Mensual'),
+                                alt.Tooltip(f'{Config.STATION_NAME_COL}:N', title='Estación'), 
+                                alt.Tooltip(Config.ORIGIN_COL, title='Origen'), 
                                 alt.Tooltip(f'{Config.MONTH_COL}:N', title="Mes"),
-                                alt.Tooltip(f'{Config.MUNICIPALITY_COL}:N', title='Municipio'),
+                                alt.Tooltip(f'{Config.MUNICIPALITY_COL}:N', title='Municipio'), 
                                 alt.Tooltip(f'{Config.ALTITUDE_COL}:Q', format='.0f', title='Altitud (m)')
                             ]
                         )
