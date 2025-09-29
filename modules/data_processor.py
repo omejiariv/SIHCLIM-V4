@@ -77,9 +77,6 @@ def load_shapefile(file_uploader_object):
 
 @st.cache_data
 def complete_series(_df):
-    """
-    Completa las series de tiempo mensuales para cada estación, conservando los metadatos.
-    """
     all_completed_dfs = []
     station_list = _df[Config.STATION_NAME_COL].unique()
     
@@ -127,8 +124,6 @@ def complete_series(_df):
     progress_bar.empty()
     return pd.concat(all_completed_dfs, ignore_index=True)
 
-
-#--- MAIN PROCESSOR
 @st.cache_data
 def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded_zip_shapefile):
     df_stations_raw = load_csv_data(uploaded_file_mapa)
