@@ -221,7 +221,7 @@ def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded
     # Este es el paso que corrige el problema desde la raíz
     df_long[key_col] = df_long[key_col].astype(str).str.strip()
     stations_metadata_df[key_col] = stations_metadata_df[key_col].astype(str).str.strip()
-
+    
     # Realizamos la unión robusta
     df_long = pd.merge(df_long, stations_metadata_df, on=key_col, how='left')
     
