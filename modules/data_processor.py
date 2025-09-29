@@ -28,7 +28,7 @@ def parse_spanish_dates(date_series):
         date_series_str = date_series_str.str.replace(es, en, regex=False)
     return pd.to_datetime(date_series_str, format='%b-%y', errors='coerce')
 
-@st.cache_data
+_data
 def load_csv_data(file_uploader_object, sep=";", lower_case=True): # <-- ¡DELIMITADOR CORREGIDO A PUNTO Y COMA!
     if file_uploader_object is None:
         return None
@@ -63,7 +63,7 @@ def load_csv_data(file_uploader_object, sep=";", lower_case=True): # <-- ¡DELIM
     st.error(f"No se pudo decodificar el archivo '{file_uploader_object.name}' con las codificaciones probadas.")
     return None
 
-@st.cache_data
+_data
 def load_shapefile(file_uploader_object):
     if file_uploader_object is None:
         return None
@@ -87,20 +87,46 @@ def load_shapefile(file_uploader_object):
 
 @st.cache_data
 def complete_series(_df):
+    """
+    Completa las series de tiempo mensuales para cada estación, conservando los metadatos.
+    """
     all_completed_dfs = []
     station_list = _df[Config.STATION_NAME_COL].unique()
+    
+    # --- INICIO DE LA CORRECCIÓN ---
+    # Identificar qué columnas de metadatos existen para conservarlas
+    metadata_cols_to_keep = [
+        col for col in [Config.MUNICIPALITY_COL, Config.ALTITUDE_COL, Config.REGION_COL, Config.CELL_COL] 
+        if col in _df.columns
+    ]
     progress_bar = st.progress(0, text="Completando todas las series...")
     for i, station in enumerate(station_list):
         df_station = _df[_df[Config.STATION_NAME_COL] == station].copy()
+        if not df_station.empty and metadata_cols_to_keep:
+            station_metadata = df_station[metadata_cols_to_keep].iloc[0]
+        else:
+            station_metadata = None
         df_station[Config.DATE_COL] = pd.to_datetime(df_station[Config.DATE_COL])
         df_station.set_index(Config.DATE_COL, inplace=True)
+
         if not df_station.index.is_unique:
             df_station = df_station[~df_station.index.duplicated(keep='first')]
+
         date_range = pd.date_range(start=df_station.index.min(), end=df_station.index.max(), freq='MS')
         df_resampled = df_station.reindex(date_range)
-        df_resampled[Config.PRECIPITATION_COL] = df_resampled[Config.PRECIPITATION_COL].interpolate(method='time')
+
+        df_resampled[Config.PRECIPITATION_COL] = \
+            df_resampled[Config.PRECIPITATION_COL].interpolate(method='time')
+
         df_resampled[Config.ORIGIN_COL] = df_resampled[Config.ORIGIN_COL].fillna('Completado')
         df_resampled[Config.STATION_NAME_COL] = station
+        
+        # --- INICIO DE LA CORRECCIÓN ---
+        # Asignar los metadatos guardados a la nueva tabla remuestreada
+        if station_metadata is not None:
+            for col_name, value in station_metadata.items():
+                df_resampled[col_name] = value
+
         df_resampled[Config.YEAR_COL] = df_resampled.index.year
         df_resampled[Config.MONTH_COL] = df_resampled.index.month
         df_resampled.reset_index(inplace=True)
