@@ -109,9 +109,9 @@ def display_spatial_distribution_tab(gdf_filtered, stations_for_analysis, df_anu
     )
     # This section can be simplified or expanded as needed.
     if not gdf_filtered.empty:
-    st.map(gdf_filtered, latitude='latitud_wgs84', longitude='longitud_wgs84')
-else:
-    st.warning("No hay estaciones seleccionadas para mostrar en el mapa.")
+        st.map(gdf_filtered, latitude='latitud_wgs84', longitude='longitud_wgs84')
+    else:
+        st.warning("No hay estaciones seleccionadas para mostrar en el mapa.")
 
 def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analysis, gdf_filtered):
     st.header("Visualizaciones de Precipitación")
