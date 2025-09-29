@@ -39,11 +39,10 @@ from modules.forecasting import (
 
 def display_filter_summary(total_stations_count, selected_stations_count, year_range, selected_months_count):
     """Muestra una caja informativa con un resumen de los filtros aplicados."""
-    #Formatear el rango de años
     if isinstance(year_range, tuple) and len(year_range) == 2:
-        year_text=f"{year_range[0]}-{year_range[1]}"
+        year_text = f"{year_range[0]}-{year_range[1]}"
     else:
-        year_text ="N/A"
+        year_text = "N/A"
     summary_text = (
         f"**Estaciones Seleccionadas:** {selected_stations_count} de {total_stations_count} | "
         f"**Período:** {year_text} | "
@@ -52,26 +51,18 @@ def display_filter_summary(total_stations_count, selected_stations_count, year_r
     st.info(summary_text)
 
 def get_map_options():
+    """Retorna la configuración para las capas del mapa."""
     return {
-        "CartoDB Positron (Predeterminado)": {"tiles": "cartodbpositron", "attr": '&copy; <a href="https://carto.com/attributions">CartoDB</a>', "overlay": False},
-        "OpenStreetMap": {"tiles": "OpenStreetMap", "attr": '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors', "overlay": False},
-        "Topografía (OpenTopoMap)": {"tiles": "https://{s}.tile.opentomap.org/{z}/{x}/{y}.png", "attr": 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">Open Topo Map</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)', "overlay": False},
-        "Relieve y Océanos (GEBCO)": {"url": "https://www.gebco.net/data_and_products/gebco_web_services/web_map_service/web_map_service.php", "layers": "GEBCO_2021_Surface", "transparent": False, "attr": "GEBCO 2021", "overlay": True},
-        "Mapa de Colombia (WMS IDEAM)": {"url": "https://geoservicios.ideam.gov.co/geoserver/ideam/wms", "layers": "ideam:col_admin", "transparent": True, "attr": "IDEAM", "overlay": True},
-        "Cobertura de la Tierra (WMS IGAC)": {"url": "https://servicios.igac.gov.co/server/services/IDEAM/IDEAM_Cobertura_Corine/MapServer/WMSServer", "layers": "IDEAM_Cobertura_Corine_Web", "transparent": True, "attr": "IGAC", "overlay": True},
+        "CartoDB Positron (Predeterminado)": {"tiles": "cartodbpositron", "attr": '&copy; CartoDB', "overlay": False},
+        "OpenStreetMap": {"tiles": "OpenStreetMap", "attr": '&copy; OpenStreetMap', "overlay": False},
     }
 
 def display_map_controls(container_object, key_prefix):
+    """Muestra los controles para seleccionar mapas base y capas."""
     map_options = get_map_options()
     base_maps = {k: v for k, v in map_options.items() if not v.get("overlay")}
-    overlays = {k: v for k, v in map_options.items() if v.get("overlay")}
-    selected_base_map_name = container_object.selectbox("Seleccionar Mapa Base",
-                                                       list(base_maps.keys()), key=f"{key_prefix}_base_map")
-    default_overlays = ["Mapa de Colombia (WMS IDEAM)"]
-    selected_overlays_names = container_object.multiselect("Seleccionar Capas Adicionales",
-                                                          list(overlays.keys()), default=default_overlays, key=f"{key_prefix}_overlays")
-    selected_overlays_config = [overlays[k] for k in selected_overlays_names]
-    return base_maps[selected_base_map_name], selected_overlays_config
+    selected_base_map_name = container_object.selectbox("Seleccionar Mapa Base", list(base_maps.keys()), key=f"{key_prefix}_base_map")
+    return base_maps[selected_base_map_name], []
 
 def create_enso_chart(enso_data):
     if enso_data.empty or Config.ENSO_ONI_COL not in enso_data.columns:
@@ -152,90 +143,35 @@ def create_anomaly_chart(df_plot):
     return fig
 
 #--- FUNCIÓN AUXILIAR PARA POPUP ---
-def generate_station_popup_html(row, df_anual_melted, include_chart=False, df_monthly_filtered=None):
-    """Robustly generates the HTML content for a station's popup."""
-    full_html = ""
+def generate_station_popup_html(row_tuple, df_anual_melted):
+    """Genera el contenido HTML para el popup de una estación en el mapa."""
+    row = row_tuple[1]
     station_name = row.get(Config.STATION_NAME_COL, 'N/A')
-    try:
-        # Get the year range from the session state
-        year_range_val = st.session_state.get('year_range', (2000, 2020))
-        if isinstance(year_range_val, tuple) and len(year_range_val) == 2 and isinstance(year_range_val[0], int):
-            year_min, year_max = year_range_val
-        else: # Fallback for other modes
-            year_min, year_max = st.session_state.get('year_range_single', (2000, 2020))
-        total_years_in_period = year_max - year_min + 1
-        
-        # Calculate statistics
-        df_station_data = df_anual_melted[df_anual_melted[Config.STATION_NAME_COL] == station_name]
-        if not df_station_data.empty:
-            summary_data = df_station_data.groupby(Config.STATION_NAME_COL).agg(
-                precip_media_anual=('precipitation', 'mean'),
-                años_validos=('precipitation', 'count')
-            ).iloc[0]
-            valid_years = int(summary_data.get('años_validos', 0))
-            precip_media_anual = summary_data.get('precip_media_anual', 0)
-        else:
-            valid_years = 0
-            precip_media_anual = 0
-            
-        # Generate the text part of the HTML
-        text_html = f"""
-        <h4>{station_name}</h4>
-        <p><b>Municipio:</b> {row.get(Config.MUNICIPALITY_COL, 'N/A')}</p>
-        <p><b>Altitud:</b> {row.get(Config.ALTITUDE_COL, 'N/A')} m</p>
-        <p><b>Promedio Anual:</b> {precip_media_anual:.0f} mm</p>
-        <small>(Calculado con <b>{valid_years}</b> de <b>{total_years_in_period}</b> años del período)</small>
-        """
-        full_html = text_html
-        
-        # Try to generate the chart part of the HTML (Minigráficos)
-        chart_html = ""
-        if include_chart and df_monthly_filtered is not None:
-            df_station_monthly_avg = df_monthly_filtered[df_monthly_filtered[Config.STATION_NAME_COL] == station_name]
-            if not df_station_monthly_avg.empty:
-                df_monthly_avg = df_station_monthly_avg.groupby(Config.MONTH_COL)[Config.PRECIPITATION_COL].mean().reset_index()
-                if not df_monthly_avg.empty:
-                    fig = go.Figure(data=[go.Bar(x=df_monthly_avg[Config.MONTH_COL], y=df_monthly_avg[Config.PRECIPITATION_COL])])
-                    fig.update_layout(title_text=f"Ppt. Mensual Media", xaxis_title="Mes", yaxis_title="Ppt. (mm)",
-                                      height=250, width=350, margin=dict(t=40, b=20, l=20, r=20))
-                    chart_html = fig.to_html(full_html=False, include_plotlyjs='cdn')
-                    
-        # Combine text and chart if chart was created successfully
-        if chart_html:
-            sanitized_chart_html = chart_html.replace('"', '&quot;')
-            full_html = text_html + "<hr>" + f'<iframe srcdoc="{sanitized_chart_html}" width="370" height="270" frameborder="0"></iframe>'
-            
-    except Exception as e:
-        st.warning(f"Could not generate the full popup content for '{station_name}'. Reason: {e}")
-        if 'text_html' in locals():
-            full_html = text_html
-        else:
-            full_html = f"<h4>{station_name}</h4><p>Error loading popup data.</p>"
-            
-    return folium.Popup(full_html, max_width=450)
+    municipio = row.get(Config.MUNICIPALITY_COL, 'N/A')
+    altitud = row.get(Config.ALTITUDE_COL, 'N/A')
 
-#--- CHART AND MAP HELPER FUNCTIONS --
+    station_annual_data = df_anual_melted[df_anual_melted[Config.STATION_NAME_COL] == station_name]
+    if not station_annual_data.empty:
+        mean_precip = station_annual_data[Config.PRECIPITATION_COL].mean()
+        precip_media_anual_text = f"{mean_precip:.0f} mm"
+    else:
+        precip_media_anual_text = "N/A"
+
+    html = f"""
+    <h4>{station_name}</h4>
+    <p><b>Municipio:</b> {municipio}</p>
+    <p><b>Altitud:</b> {altitud} m</p>
+    <p><b>Promedio Anual:</b> {precip_media_anual_text}</p>
+    """
+    return folium.Popup(html, max_width=300)
+
 def create_folium_map(location, zoom, base_map_config, overlays_config, fit_bounds_data=None):
-    """Creates a Folium map with robust centering logic."""
-    m = folium.Map(location=location, zoom_start=zoom, tiles=base_map_config.get("tiles", "OpenStreetMap"),
-                   attr=base_map_config.get("attr", None))
-                   
+    """Crea un mapa base de Folium con centrado automático."""
+    m = folium.Map(location=location, zoom_start=zoom, tiles=base_map_config.get("tiles"), attr=base_map_config.get("attr"))
     if fit_bounds_data is not None and not fit_bounds_data.empty:
-        if len(fit_bounds_data) > 1:
-            bounds = fit_bounds_data.total_bounds
-            if np.all(np.isfinite(bounds)):
-                m.fit_bounds([[bounds[1], bounds[0]], [bounds[3], bounds[2]]])
-        elif len(fit_bounds_data) == 1:
-            point = fit_bounds_data.iloc[0].geometry
-            m.location = [point.y, point.x]
-            m.zoom_start = 12
-            
-    for layer_config in overlays_config:
-        if layer_config.get("url"):
-            WmsTileLayer(url=layer_config["url"], layers=layer_config["layers"], fmt='image/png',
-                         transparent=layer_config.get("transparent", False), overlay=True, control=True,
-                         name=layer_config.get("attr", "Overlay")).add_to(m)
-                         
+        bounds = fit_bounds_data.total_bounds
+        if np.all(np.isfinite(bounds)):
+            m.fit_bounds([[bounds[1], bounds[0]], [bounds[3], bounds[2]]])
     return m
 
 #--- MAIN TAB DISPLAY FUNCTIONS ---
