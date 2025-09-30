@@ -499,10 +499,9 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                                 alt.Tooltip(Config.DATE_COL, format='%Y-%m'),
                                 alt.Tooltip(f'{Config.PRECIPITATION_COL}:Q', format='.0f', title='Ppt. Mensual'),
                                 alt.Tooltip(f'{Config.STATION_NAME_COL}:N', title='Estación'), 
-                                alt.Tooltip(Config.ORIGIN_COL, title='Origen'), 
-                                alt.Tooltip(f'{Config.MONTH_COL}:N', title="Mes"),
-                                alt.Tooltip(f'{Config.MUNICIPALITY_COL}:N', title='Municipio'), 
-                                alt.Tooltip(f'{Config.ALTITUDE_COL}:Q', format='.0f', title='Altitud (m)')
+                                alt.Tooltip (f'{Config.MONTH_COL}:N', title="Mes"),
+                                alt.Tooltip (f'{Config.MUNICIPALITY_COL}:N', title='municipio'),
+                                alt.Tooltip (f'{Config.ALTITUDE_COL}:Q', format='.0f', title='Altitud (m)')
                             ]
                         )
                         color_encoding = alt.Color(f'{Config.STATION_NAME_COL}:N', legend=alt.Legend(title="Estaciones"))
