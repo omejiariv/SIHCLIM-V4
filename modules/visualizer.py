@@ -740,31 +740,27 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
 
     with gif_tab:
         st.subheader("Distribución Espacio-Temporal de la Lluvia en Antioquia")
-
-        col_controls, col_gif = st.columns([1, 3])
-    
-        with col_controls:
-            if st.button("🔄 Reiniciar Animación", key="reset_gif_button"):
-                # Incrementar la clave en session_state para forzar la recarga
-                st.session_state.gif_reload_key += 1
-                st.rerun()
-
-        with col_gif:
-            gif_path = Config.GIF_PATH # "assets/PPAM.gif"
-            if os.path.exists(gif_path):
+        if os.path.exists(Config.GIF_PATH):
+            col_controls, col_gif = st.columns([1, 3])
+            with col_controls:
+                if st.button("🔄 Reiniciar Animación"):
+                    st.session_state['gif_reload_key'] += 1
+                    st.rerun()
+            with col_gif:
                 try:
-                    # Leer el archivo GIF como binario
-                    with open(gif_path, "rb") as f:
-                        gif_bytes = f.read()
-            
-                    # Usar los bytes para mostrar el GIF (sin el argumento 'key')
-                    st.image(gif_bytes, 
-                            caption="Animación PPAM", 
-                            width=600)
+                    with open(Config.GIF_PATH, "rb") as file:
+                        contents = file.read()
+                    data_url = base64.b64encode(contents).decode("utf-8")
+                    st.markdown(
+                        f'<img src="data:image/gif;base64,{data_url}" alt="Animación PPAM" '
+                        f'style="width:70%; max-width: 600px;" '
+                        f'key="gif_display_{st.session_state["gif_reload_key"]}">',
+                        unsafe_allow_html=True
+                    )
                 except Exception as e:
-                    st.error(f"Ocurrió un error al intentar mostrar el GIF: {e}")
-            else:
-                st.error(f"No se pudo encontrar el archivo GIF en la ruta especificada: {gif_path}")
+                    st.warning(f"Error al cargar/mostrar GIF: {e}")
+        else:
+            st.warning("No se encontró el archivo GIF en la ruta especificada.")
         
     with temporal_tab:
         st.subheader("Explorador Anual de Precipitación")
