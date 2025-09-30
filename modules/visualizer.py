@@ -353,7 +353,7 @@ def display_spatial_distribution_tab(gdf_filtered, stations_for_analysis, df_anu
                                           text_auto='.1f',
                                           color_discrete_map={'% Original': '#1f77b4', '% Completado': '#ff7f0e'})
                         fig_comp.update_layout(height=500, xaxis={'categoryorder': 'trace'})
-                        st.plotly_chart(fig_comp, width='stretch')
+                        st.plotly_chart(fig_comp, use_container_width=True, config={})
                     else:
                         st.warning("No hay datos mensuales procesados para mostrar la composición.")
                 else:
@@ -371,7 +371,7 @@ def display_spatial_distribution_tab(gdf_filtered, stations_for_analysis, df_anu
                                       color=Config.PERCENTAGE_COL,
                                       color_continuous_scale=px.colors.sequential.Viridis)
                     fig_disp.update_layout(height=500, xaxis={'categoryorder': 'trace'})
-                    st.plotly_chart(fig_disp, width='stretch')
+                    st.plotly_chart(fig_disp, use_container_width=True, config={})
             else:
                 st.warning("No hay estaciones seleccionadas para mostrar el gráfico.")
 
@@ -461,7 +461,7 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                     fig_avg.update_layout(height=500,
                                         xaxis={'categoryorder': 'total descending' if "Mayor a Menor" in sort_order
                                                 else ('total ascending' if "Menor a Mayor" in sort_order else 'trace')})
-                    st.plotly_chart(fig_avg, width='stretch')
+                    st.plotly_chart(fig_avg, use_container_width=True, config={})
                 else: # Gráfico de Cajas
                     df_anual_filtered_for_box = df_anual_rich[df_anual_rich[Config.STATION_NAME_COL].isin(stations_for_analysis)]
                     fig_box_annual = px.box(df_anual_filtered_for_box, x=Config.STATION_NAME_COL,
@@ -471,7 +471,7 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                                             labels={Config.STATION_NAME_COL: 'Estación',
                                                     Config.PRECIPITATION_COL: 'Precipitación Anual (mm)'})
                     fig_box_annual.update_layout(height=500)
-                    st.plotly_chart(fig_box_annual, width='stretch', key="box_anual_multianual")
+                    st.plotly_chart(fig_box_annual, use_container_width=True, config={}, key="box_anual_multianual")
             else:
                 st.warning("No hay datos anuales para mostrar el análisis multianual.")
 
@@ -527,7 +527,7 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                                                 color=Config.STATION_NAME_COL, title='Distribución de la Precipitación por Mes',
                                                 labels={Config.MONTH_COL: 'Mes', Config.PRECIPITATION_COL: 'Precipitación Mensual (mm)', Config.STATION_NAME_COL: 'Estación'})
                         fig_box_monthly.update_layout(height=500)
-                        st.plotly_chart(fig_box_monthly, width='stretch')
+                        st.plotly_chart(fig_box_monthly, use_container_width=True, config={})
             else:
                 st.warning("No hay datos mensuales para mostrar el gráfico.")
         
@@ -537,7 +537,7 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                                                          (st.session_state.df_enso[Config.DATE_COL].dt.year <= year_max) &
                                                          (st.session_state.df_enso[Config.DATE_COL].dt.month.isin(st.session_state.meses_numeros))]
                 fig_enso_mensual = create_enso_chart(enso_filtered)
-                st.plotly_chart(fig_enso_mensual, width='stretch', key="enso_chart_mensual")
+                st.plotly_chart(fig_enso_mensual, use_container_width=True, config={}, key="enso_chart_mensual")
             else:
                 st.info("No hay datos ENSO disponibles para este análisis.")
                 
@@ -566,7 +566,7 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                           'Agosto': 8, 'Septiembre': 9, 'Octubre': 10, 'Noviembre': 11, 'Diciembre': 12}
             fig_avg_monthly.update_layout(height=500, xaxis=dict(tickmode='array',
                                                                  tickvals=list(meses_dict.values()), ticktext=list(meses_dict.keys())))
-            st.plotly_chart(fig_avg_monthly, width='stretch')
+            st.plotly_chart(fig_avg_monthly, use_container_width=True, config={})
 
             st.markdown("##### Distribución de Precipitación Anual")
             df_anual_filtered_for_box = df_anual_rich[df_anual_rich[Config.STATION_NAME_COL].isin(stations_for_analysis)] # <-- USAR df_anual_rich
@@ -576,7 +576,7 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                                     title='Distribución de la Precipitación Anual por Estación',
                                     labels={Config.STATION_NAME_COL: 'Estación', Config.PRECIPITATION_COL: 'Precipitación Anual (mm)'})
             fig_box_annual.update_layout(height=500)
-            st.plotly_chart(fig_box_annual, width='stretch', key="box_anual_comparacion")
+            st.plotly_chart(fig_box_annual, use_container_width=True, config={}, key="box_anual_comparacion")
 
     # 4. DISTRIBUCIÓN
     with sub_tab_distribucion:
@@ -592,14 +592,14 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                                                   title=f'Distribución Anual de Precipitación ({year_min} - {year_max})',
                                                   labels={Config.PRECIPITATION_COL: 'Precipitación Anual (mm)', 'count': 'Frecuencia'})
                     fig_hist_anual.update_layout(height=500)
-                    st.plotly_chart(fig_hist_anual, width='stretch')
+                    st.plotly_chart(fig_hist_anual, use_container_width=True, config={})
                 else:
                     fig_violin_anual = px.violin(df_anual_rich, y=Config.PRECIPITATION_COL, # <-- USAR df_anual_rich
                                                  x=Config.STATION_NAME_COL, color=Config.STATION_NAME_COL,
                                                  box=True, points="all", title='Distribución Anual con Gráfico de Violin',
                                                  labels={Config.PRECIPITATION_COL: 'Precipitación Anual (mm)', Config.STATION_NAME_COL: 'Estación'})
                     fig_violin_anual.update_layout(height=500)
-                    st.plotly_chart(fig_violin_anual, width='stretch')
+                    st.plotly_chart(fig_violin_anual, use_container_width=True, config={})
             else:
                 st.warning("No hay datos anuales para mostrar la distribución.")
         else: # Mensual
@@ -610,14 +610,14 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                                                     title=f'Distribución Mensual de Precipitación ({year_min} - {year_max})',
                                                     labels={Config.PRECIPITATION_COL: 'Precipitación Mensual (mm)', 'count': 'Frecuencia'})
                     fig_hist_mensual.update_layout(height=500)
-                    st.plotly_chart(fig_hist_mensual, width='stretch')
+                    st.plotly_chart(fig_hist_mensual, use_container_width=True, config={})
                 else:
                     fig_violin_mensual = px.violin(df_monthly_rich, y=Config.PRECIPITATION_COL, # <-- USAR df_monthly_rich
                                                    x=Config.MONTH_COL, color=Config.STATION_NAME_COL,
                                                    box=True, points="all", title='Distribución Mensual con Gráfico de Violin',
                                                    labels={Config.MONTH_COL: 'Mes', Config.PRECIPITATION_COL: 'Precipitación Mensual (mm)', Config.STATION_NAME_COL: 'Estación'})
                     fig_violin_mensual.update_layout(height=500)
-                    st.plotly_chart(fig_violin_mensual, width='stretch')
+                    st.plotly_chart(fig_violin_mensual, use_container_width=True, config={})
             else:
                 st.warning("No hay datos mensuales para mostrar el gráfico.")
 
@@ -631,7 +631,7 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                                     title=f'Precipitación Acumulada por Año ({year_min} - {year_max})',
                                     labels={Config.YEAR_COL: 'Año', Config.PRECIPITATION_COL: 'Precipitación Acumulada (mm)'})
             fig_acumulada.update_layout(barmode='group', height=500)
-            st.plotly_chart(fig_acumulada, width='stretch')
+            st.plotly_chart(fig_acumulada, use_container_width=True, config={})
         else:
             st.info("No hay datos para calcular la precipitación acumulada.")
 
@@ -659,7 +659,7 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                                     hover_data=[Config.MUNICIPALITY_COL]
                                     )
             fig_relacion.update_layout(height=500)
-            st.plotly_chart(fig_relacion, width='stretch')
+            st.plotly_chart(fig_relacion, use_container_width=True, config={})
         else:
             st.info("No hay datos de altitud o precipitación disponibles para analizar la relación.")
 
@@ -699,7 +699,7 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                     title=f'Serie de Tiempo Promedio Regional ({len(stations_for_analysis)} Estaciones)',
                     xaxis_title="Fecha", yaxis_title="Precipitación Mensual (mm)", height=550
                 )
-                st.plotly_chart(fig_regional, width='stretch')
+                st.plotly_chart(fig_regional, use_container_width=True, config={})
                 
                 with st.expander("Ver Datos de la Serie Regional Promedio"):
                     df_regional_avg_display = df_regional_avg.rename(columns={'Precipitación Promedio': 'Precipitación Promedio Regional (mm)'})
@@ -844,7 +844,7 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
                 height=max(600, len(stations_for_analysis) * 35),
                 yaxis=dict(categoryorder='total ascending')
             )
-            st.plotly_chart(fig_racing, width='stretch')
+            st.plotly_chart(fig_racing, use_container_width=True, config={})
         else:
             st.warning("No hay suficientes datos anuales con los filtros actuales para generar el Gráfico de Carrera.")
 
@@ -869,7 +869,7 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
                     title='Precipitación Anual por Estación'
                 )
                 fig_mapa_animado.update_geos(fitbounds="locations", visible=True)
-                st.plotly_chart(fig_mapa_animado, width='stretch')
+                st.plotly_chart(fig_mapa_animado, use_container_width=True, config={})
             else:
                 st.warning("No se pudieron combinar los datos anuales con la información geográfica de las estaciones.")
         else:
@@ -968,7 +968,7 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
             fig2, fig_var2, error2 = create_interpolation_surface(year2, method2, variogram_model2, gdf_filtered, df_anual_non_na)
             
             with map_col1:
-                if fig1: st.plotly_chart(fig1, width='stretch')
+                if fig1: st.plotly_chart(fig1, use_container_width=True, config={})
                 else: st.info(error1)
             with map_col2:
                 if fig2: st.plotly_chart(fig2, width='stretch')
@@ -1083,7 +1083,7 @@ def display_drought_analysis_tab(df_monthly_filtered, gdf_filtered, stations_for
                                   yaxis_title=f"Valor {index_type}", xaxis_title="Fecha", height=600)
                 
                 with col2_idx:
-                    st.plotly_chart(fig, width='stretch')
+                    st.plotly_chart(fig, use_container_width=True, config={})
                 with st.expander(f"Ver tabla de datos {index_type}"):
                     st.dataframe(df_plot[['index_val']].rename(columns={'index_val': index_type}).style.format("{:.2f}"))
 
@@ -1121,7 +1121,7 @@ def display_anomalies_tab(df_long, df_monthly_filtered, stations_for_analysis):
             anomalia_oni=(Config.ENSO_ONI_COL, 'first')
         ).reset_index()
         fig = create_anomaly_chart(df_plot)
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, use_container_width=True, config={})
         
     with anom_fase_tab:
         if Config.ENSO_ONI_COL in df_anomalias.columns:
@@ -1134,7 +1134,7 @@ def display_anomalies_tab(df_long, df_monthly_filtered, stations_for_analysis):
                             title="Distribución de Anomalías de Precipitación por Fase ENSO",
                             labels={'anomalia': 'Anomalía de Precipitación (mm)', 'enso_fase': 'Fase ENSO'},
                             points='all')
-            st.plotly_chart(fig_box, width='stretch')
+            st.plotly_chart(fig_box, use_container_width=True, config={})
         else:
             st.warning("La columna 'anomalia_oni' no está disponible para este análisis.")
 
@@ -1522,7 +1522,7 @@ def display_correlation_tab(df_monthly_filtered, stations_for_analysis):
                     'precipitation': 'Precipitación Mensual (mm)'
                 }
             )
-            st.plotly_chart(fig_corr, width='stretch')
+            st.plotly_chart(fig_corr, use_container_width=True, config={})
 
     with station_corr_tab:
         if len(stations_for_analysis) < 2:
@@ -1559,7 +1559,7 @@ def display_correlation_tab(df_monthly_filtered, stations_for_analysis):
                         title=f'Dispersión de Precipitación: {station1_name} vs. {station2_name}',
                         labels={station1_name: f'Precipitación en {station1_name} (mm)', station2_name: f'Precipitación en {station2_name} (mm)'}
                     )
-                    st.plotly_chart(fig_scatter, width='stretch')
+                    st.plotly_chart(fig_scatter, use_container_width=True, config={})
                 else:
                     st.warning("No hay suficientes datos superpuestos para calcular la correlación para las estaciones seleccionadas.")
 
@@ -1608,7 +1608,7 @@ def display_correlation_tab(df_monthly_filtered, stations_for_analysis):
                         labels={index_col_name: f'Valor del índice {selected_index}',
                                 Config.PRECIPITATION_COL: 'Precipitación Mensual (mm)'}
                     )
-                    st.plotly_chart(fig_scatter_indices, width='stretch')
+                    st.plotly_chart(fig_scatter_indices, use_container_width=True, config={})
                 else:
                     st.warning("No hay suficientes datos superpuestos entre la estación y el índice para calcular la correlación.")
 
@@ -1653,7 +1653,7 @@ def display_enso_tab(df_monthly_filtered, df_enso, gdf_filtered, stations_for_an
                     if not enso_filtered.empty and var_code in enso_filtered.columns and not enso_filtered[var_code].isnull().all():
                         fig_enso_series = px.line(enso_filtered, x=Config.DATE_COL, y=var_code,
                                                   title=f"Serie de Tiempo para {var_name}")
-                        st.plotly_chart(fig_enso_series, width='stretch')
+                        st.plotly_chart(fig_enso_series, use_container_width=True, config={})
                     else:
                         st.warning(f"No hay datos disponibles para '{var_code}' en el período seleccionado.")
 
@@ -1792,7 +1792,7 @@ def display_trends_and_forecast_tab(df_anual_melted, df_monthly_to_process, stat
                     
                     fig_pronostico.update_layout(title=f"Pronóstico de Precipitación SARIMA {sarima_order}x{seasonal_order[:-1]} para {station_to_forecast}",
                                                 xaxis_title="Fecha", yaxis_title="Precipitación (mm)")
-                    st.plotly_chart(fig_pronostico, width='stretch')
+                    st.plotly_chart(fig_pronostico, use_container_width=True, config={})
                     st.info(f"El modelo SARIMA fue entrenado con la configuración: **Orden={sarima_order}**, **Estacional={seasonal_order}**.")
                     
                     forecast_df = pd.DataFrame({'fecha': forecast_mean.index, 'pronostico': forecast_mean.values,
@@ -1827,7 +1827,7 @@ def display_trends_and_forecast_tab(df_anual_melted, df_monthly_to_process, stat
                     fig_prophet = plot_plotly(model_prophet, forecast_prophet)
                     fig_prophet.update_layout(title=f"Pronóstico de Precipitación con Prophet para {station_to_forecast_prophet}",
                                               yaxis_title="Precipitación (mm)")
-                    st.plotly_chart(fig_prophet, width='stretch')
+                    st.plotly_chart(fig_prophet, use_container_width=True, config={})
                     
                     csv_data = forecast_prophet[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].to_csv(index=False).encode('utf-8')
                     st.download_button(
@@ -1886,7 +1886,7 @@ def display_trends_and_forecast_tab(df_anual_melted, df_monthly_to_process, stat
                         xaxis_title="Fecha", yaxis_title="Precipitación (mm)", height=650,
                         legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01)
                     )
-                    st.plotly_chart(fig_compare, width='stretch')
+                    st.plotly_chart(fig_compare, use_container_width=True, config={})
 
     with tendencia_individual_tab:
         st.subheader("Tendencia de Precipitación Anual (Regresión Lineal)")
@@ -1918,7 +1918,7 @@ def display_trends_and_forecast_tab(df_anual_melted, df_monthly_to_process, stat
                                                y=df_to_analyze['tendencia'], mode='lines', name='Línea de Tendencia',
                                                line=dict(color='red')))
             fig_tendencia.update_layout(xaxis_title="Año", yaxis_title="Precipitación Anual (mm)")
-            st.plotly_chart(fig_tendencia, width='stretch')
+            st.plotly_chart(fig_tendencia, use_container_width=True, config={})
             
             csv_data = df_to_analyze.to_csv(index=False).encode('utf-8')
             st.download_button(
@@ -1972,7 +1972,7 @@ def display_trends_and_forecast_tab(df_anual_melted, df_monthly_to_process, stat
             
             fig_mk.add_trace(go.Scatter(x=x_vals, y=y_vals, mode='lines', name="Pendiente de Sen", line=dict(color='orange')))
             fig_mk.update_layout(xaxis_title="Año", yaxis_title="Precipitación Anual (mm)")
-            st.plotly_chart(fig_mk, width='stretch')
+            st.plotly_chart(fig_mk, use_container_width=True, config={})
         else:
             st.warning("No hay suficientes datos (se requieren al menos 4 puntos) para calcular la tendencia de Mann-Kendall.")
 
@@ -2053,7 +2053,7 @@ def display_trends_and_forecast_tab(df_anual_melted, df_monthly_to_process, stat
                     
                     fig_decomp.update_layout(title=f"Descomposición de la Serie de Precipitación para {station_to_decompose}", height=600,
                                              legend=dict(orientation='h', yanchor="bottom", y=1.02, xanchor="right", x=1))
-                    st.plotly_chart(fig_decomp, width='stretch')
+                    st.plotly_chart(fig_decomp, use_container_width=True, config={})
                 except Exception as e:
                     st.error(f"No se pudo realizar la descomposición de la serie. Puede que la serie de datos sea demasiado corta. Error: {e}")
             else:
@@ -2075,9 +2075,9 @@ def display_trends_and_forecast_tab(df_anual_melted, df_monthly_to_process, stat
                 if len(df_station_acf) > max_lag:
                     try:
                         fig_acf = create_acf_chart(df_station_acf[Config.PRECIPITATION_COL], max_lag)
-                        st.plotly_chart(fig_acf, width='stretch')
+                        st.plotly_chart(fig_acf, use_container_width=True, config={})
                         fig_pacf = create_pacf_chart(df_station_acf[Config.PRECIPITATION_COL], max_lag)
-                        st.plotly_chart(fig_pacf, width='stretch')
+                        st.plotly_chart(fig_pacf, use_container_width=True, config={})
                     except Exception as e:
                         st.error(f"No se pudieron generar los gráficos de autocorrelación. Error: {e}")
                 else:
@@ -2212,7 +2212,7 @@ def display_percentile_analysis_subtab(df_monthly_filtered, station_to_analyze_p
             mean_precip = df_long[df_long[Config.STATION_NAME_COL] == station_to_analyze_perc][Config.PRECIPITATION_COL].mean()
             fig_series.add_hline(y=mean_precip, line_dash="dash", line_color="green", annotation_text="Media Histórica")
             fig_series.update_layout(height=500)
-            st.plotly_chart(fig_series, width='stretch')
+            st.plotly_chart(fig_series, use_container_width=True, config={})
 
             st.subheader("Umbrales de Percentil Mensual (Climatología Histórica)")
             meses_map_inv = {1: 'Ene', 2: 'Feb', 3: 'Mar', 4: 'Abr', 5: 'May', 6: 'Jun',
@@ -2228,7 +2228,7 @@ def display_percentile_analysis_subtab(df_monthly_filtered, station_to_analyze_p
                                             mode='lines', name='Media Mensual', line=dict(color='green', dash='dot')))
             fig_thresh.update_layout(title='Umbrales de Precipitación por Mes (Basado en Climatología)',
                                      xaxis_title="Mes", yaxis_title="Precipitación (mm)", height=400)
-            st.plotly_chart(fig_thresh, width='stretch')
+            st.plotly_chart(fig_thresh, use_container_width=True, config={})
 
         except Exception as e:
             st.error(f"Error al calcular el análisis de percentiles: {e}")
