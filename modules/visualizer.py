@@ -182,7 +182,7 @@ def generate_station_popup_html(row, df_anual_melted, include_chart=False, df_mo
         text_html = f"""
         <h4>{station_name}</h4>
         <p><b>Municipio:</b> {row.get(Config.MUNICIPALITY_COL, 'N/A')}</p>
-        <p><b>itud:</b> {row.get(Config.ALTITUDE_COL, 'N/A')} m</p>
+        <p><b>altitud:</b> {row.get(Config.ALTITUDE_COL, 'N/A')} m</p>
         <p><b>Promedio Anual:</b> {precip_media_anual:.0f} mm</p>
         <small>(Calculado con <b>{valid_years}</b> de <b>{total_years_in_period}</b> años del período)</small>
         """
@@ -395,7 +395,7 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
         year_min, year_max = st.session_state.get('year_range_single', (2000, 2020))
     selected_stations_str = f"{len(stations_for_analysis)} estaciones" if len(stations_for_analysis) > 1 else f"1 estación: {stations_for_analysis[0]}"
 
-    # --- ENRIQUECIMIENTO DE DATAFRAMES CON METADATA (MUNICIPIO, ITUD) ---
+    # --- ENRIQUECIMIENTO DE DATAFRAMES CON METADATA (MUNICIPIO, ALTITUD) ---
     metadata_cols = [Config.STATION_NAME_COL, Config.MUNICIPALITY_COL, Config.ALTITUDE_COL]
     gdf_metadata = gdf_filtered[metadata_cols].drop_duplicates(subset=[Config.STATION_NAME_COL]).copy() 
     gdf_metadata[Config.ALTITUDE_COL] = pd.to_numeric(gdf_metadata[Config.ALTITUDE_COL], errors='coerce').fillna(0).astype(int)
