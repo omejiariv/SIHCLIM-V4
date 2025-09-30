@@ -147,7 +147,7 @@ def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded
     gdf_stations = gpd.GeoDataFrame(
         df_stations_raw,
         geometry=gpd.points_from_xy(df_stations_raw[lon_col], df_stations_raw[lat_col]),
-        crs="EPSG:9377"
+        crs="EPSG:4326"
     ).to_crs("EPSG:4326")
     
     gdf_stations[Config.LONGITUDE_COL] = gdf_stations.geometry.x
