@@ -396,7 +396,7 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
     selected_stations_str = f"{len(stations_for_analysis)} estaciones" if len(stations_for_analysis) > 1 else f"1 estación: {stations_for_analysis[0]}"
 
     # --- ENRIQUECIMIENTO DE DATAFRAMES CON METADATA (MUNICIPIO, ITUD) ---
-    metadata_cols = [Config.STATION_NAME_COL, Config.MUNICIPALITY_COL, Config.ITUDE_COL]
+    metadata_cols = [Config.STATION_NAME_COL, Config.MUNICIPALITY_COL, Config.ALTITUDE_COL]
     gdf_metadata = gdf_filtered[metadata_cols].drop_duplicates(subset=[Config.STATION_NAME_COL]).copy() 
     
     df_anual_rich = df_anual_melted.merge(gdf_metadata, on=Config.STATION_NAME_COL, how='left')
