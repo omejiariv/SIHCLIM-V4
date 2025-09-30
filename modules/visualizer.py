@@ -405,7 +405,7 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
         ).fillna(-9999).astype(int)
 
     if Config.MUNICIPALITY_COL in gdf_metadata.columns:
-    gdf_metadata[Config.MUNICIPALITY_COL] = gdf_metadata[Config.MUNICIPALITY_COL].astype(str).str.strip().replace('nan', 'Sin Dato')
+        gdf_metadata[Config.MUNICIPALITY_COL] = gdf_metadata[Config.MUNICIPALITY_COL].astype(str).str.strip().replace('nan', 'Sin Dato')
     
     df_anual_rich = df_anual_melted.merge(gdf_metadata, on=Config.STATION_NAME_COL, how='left')
     df_monthly_rich = df_monthly_filtered.merge(gdf_metadata, on=Config.STATION_NAME_COL, how='left')
