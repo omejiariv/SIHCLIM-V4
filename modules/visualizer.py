@@ -738,6 +738,10 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
 
 # ... (dentro de la función display_advanced_maps_tab)
 
+
+
+
+
     with gif_tab:
         st.subheader("Distribución Espacio-Temporal de la Lluvia en Antioquia")
         if os.path.exists(Config.GIF_PATH):
@@ -761,7 +765,8 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
                     st.warning(f"Error al cargar/mostrar GIF: {e}")
         else:
             st.warning("No se encontró el archivo GIF en la ruta especificada.")
-        
+
+          
     with temporal_tab:
         st.subheader("Explorador Anual de Precipitación")
         df_anual_melted_non_na = df_anual_melted.dropna(subset=[Config.PRECIPITATION_COL])
