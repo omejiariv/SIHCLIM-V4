@@ -44,7 +44,7 @@ class Config:
     
     # --- Configuración para DEM ---
     # 💥 CORRECCIÓN DEM_SERVER_URL 💥
-    DEM_SERVER_URL = "https://your-server-domain/dem.tif" # Debe ser reemplazada por tu URL real
+    DEM_SERVER_URL = "https://tu-bucket.storage.com/srtm_antioquia.tif" 
     
     @staticmethod
     def initialize_session_state():
