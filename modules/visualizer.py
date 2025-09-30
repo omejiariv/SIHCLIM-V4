@@ -404,9 +404,10 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
     
     # --- PESTAÑAS DE VISUALIZACIÓN ---
     sub_tab_anual, sub_tab_mensual, sub_tab_comparacion, sub_tab_distribucion, \
-    sub_tab_acumulada, sub_tab_itud, sub_tab_regional = \
-    st.tabs(["Análisis Anual", "Análisis Mensual", "Comparación Rápida", "Distribución",
-             "Acumulada", "Relación itud", "Serie Regional"])
+    sub_tab_acumulada, sub_tab_altitud, sub_tab_regional = st.tabs(
+    ["Análisis Anual", "Análisis Mensual", "Comparación Rápida", "Distribución",
+             "Acumulada", "Relación Altitud", "Serie Regional"]
+    )    
 
     # 1. ANÁLISIS ANUAL
     with sub_tab_anual:
