@@ -157,6 +157,19 @@ def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded
         geometry=gpd.points_from_xy(df_stations_raw[lon_col], df_stations_raw[lat_col]),
         crs="EPSG:4326"
     ).to_crs("EPSG:4326")
+
+    # --- BLOQUE DE SOBREESCRITURA FINAL DE DATOS (CRÍTICO) ---
+    # A. Sobreescribe Municipio: Fuerza a cadena y rellena NaN con 'Sin Dato'
+    if Config.MUNICIPALITY_COL in gdf_stations.columns:
+        gdf_stations[Config.MUNICIPALITY_COL] = gdf_stations[Config.MUNICIPALITY_COL].astype(str).str.strip().replace('nan', 'Sin Dato')
+
+    # B. Sobreescribe Altitud: Convierte a cadena para Altair, forzando tipo Nominal si es necesario.
+    if Config.ALTITUDE_COL in gdf_stations.columns:
+        # 1. Fuerza a numérico, rellena NaN con -9999 (para visualización)
+        alt_numeric = standardize_numeric_column(gdf_stations[Config.ALTITUDE_COL]).fillna(-9999).astype(int)
+        # 2. Convierte el resultado a CADENA de texto (str)
+        gdf_stations[Config.ALTITUDE_COL] = alt_numeric.astype(str)
+    # --- FIN DEL BLOQUE DE SOBREESCRITURA ---
     
     gdf_stations[Config.LONGITUDE_COL] = gdf_stations.geometry.x
     gdf_stations[Config.LATITUDE_COL] = gdf_stations.geometry.y
