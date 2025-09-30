@@ -758,7 +758,7 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
                     st.image(gif_bytes,
                              caption="Animación PPAM", 
                              width=600, 
-                             key=f'gif_viewer_{st.session_state.gif_reload_key}')
+                             
                 except Exception as e:
                     st.error(f"Ocurrió un error al intentar mostrar el GIF: {e}")
             else:
