@@ -417,7 +417,7 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                 st.subheader("Precipitación Anual (mm)")
                 st.info("Solo se muestran los años con 10 o más meses de datos válidos.")
                 chart_anual = (
-                    .Chart(df_anual_rich.dropna(subset=[Config.PRECIPITATION_COL])) # <-- USAR df_anual_rich
+                    alt.Chart(df_anual_rich.dropna(subset=[Config.PRECIPITATION_COL]))
                     .mark_line(point=True)
                     .encode(
                         x=alt.X(f'{Config.YEAR_COL}:O', title='Año'),
