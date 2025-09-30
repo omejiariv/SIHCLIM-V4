@@ -182,7 +182,7 @@ def generate_station_popup_html(row, df_anual_melted, include_chart=False, df_mo
         text_html = f"""
         <h4>{station_name}</h4>
         <p><b>Municipio:</b> {row.get(Config.MUNICIPALITY_COL, 'N/A')}</p>
-        <p><b>Altitud:</b> {row.get(Config.ALTITUDE_COL, 'N/A')} m</p>
+        <p><b>itud:</b> {row.get(Config.ITUDE_COL, 'N/A')} m</p>
         <p><b>Promedio Anual:</b> {precip_media_anual:.0f} mm</p>
         <small>(Calculado con <b>{valid_years}</b> de <b>{total_years_in_period}</b> años del período)</small>
         """
@@ -395,8 +395,8 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
         year_min, year_max = st.session_state.get('year_range_single', (2000, 2020))
     selected_stations_str = f"{len(stations_for_analysis)} estaciones" if len(stations_for_analysis) > 1 else f"1 estación: {stations_for_analysis[0]}"
 
-    # --- ENRIQUECIMIENTO DE DATAFRAMES CON METADATA (MUNICIPIO, ALTITUD) ---
-    metadata_cols = [Config.STATION_NAME_COL, Config.MUNICIPALITY_COL, Config.ALTITUDE_COL]
+    # --- ENRIQUECIMIENTO DE DATAFRAMES CON METADATA (MUNICIPIO, ITUD) ---
+    metadata_cols = [Config.STATION_NAME_COL, Config.MUNICIPALITY_COL, Config.ITUDE_COL]
     gdf_metadata = gdf_filtered[metadata_cols].drop_duplicates(subset=[Config.STATION_NAME_COL]).copy() 
     
     df_anual_rich = df_anual_melted.merge(gdf_metadata, on=Config.STATION_NAME_COL, how='left')
@@ -404,9 +404,9 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
     
     # --- PESTAÑAS DE VISUALIZACIÓN ---
     sub_tab_anual, sub_tab_mensual, sub_tab_comparacion, sub_tab_distribucion, \
-    sub_tab_acumulada, sub_tab_altitud, sub_tab_regional = \
+    sub_tab_acumulada, sub_tab_itud, sub_tab_regional = \
     st.tabs(["Análisis Anual", "Análisis Mensual", "Comparación Rápida", "Distribución",
-             "Acumulada", "Relación Altitud", "Serie Regional"])
+             "Acumulada", "Relación itud", "Serie Regional"])
 
     # 1. ANÁLISIS ANUAL
     with sub_tab_anual:
@@ -417,7 +417,7 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                 st.subheader("Precipitación Anual (mm)")
                 st.info("Solo se muestran los años con 10 o más meses de datos válidos.")
                 chart_anual = (
-                    alt.Chart(df_anual_rich.dropna(subset=[Config.PRECIPITATION_COL])) # <-- USAR df_anual_rich
+                    .Chart(df_anual_rich.dropna(subset=[Config.PRECIPITATION_COL])) # <-- USAR df_anual_rich
                     .mark_line(point=True)
                     .encode(
                         x=alt.X(f'{Config.YEAR_COL}:O', title='Año'),
