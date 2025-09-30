@@ -224,14 +224,18 @@ def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded
         Config.ALTITUDE_COL, Config.CELL_COL, Config.LATITUDE_COL, Config.LONGITUDE_COL, Config.ET_COL
     ]
     existing_metadata_cols = [col for col in station_metadata_cols if col in gdf_stations.columns]
+    
+    gdf_metadata_unique = gdf_stations[existing_metadata_cols].drop_duplicates(subset=[Config.STATION_NAME_COL])
 
-    stations_metadata_df = gdf_stations[existing_metadata_cols].drop_duplicates(subset=[Config.STATION_NAME_COL]).copy()
-    key_col = Config.STATION_NAME_COL
-    
-    df_long[key_col] = df_long[key_col].astype(str).str.strip()
-    stations_metadata_df[key_col] = stations_metadata_df[key_col].astype(str).str.strip()
-    
-    df_long = pd.merge(df_long, stations_metadata_df, on=key_col, how='left')
+    cols_to_drop_from_long = [c for c in existing_metadata_cols if c != Config.STATION_NAME_COL and c in df_long.columns]
+    df_long.drop(columns=cols_to_drop_from_long, inplace=True, errors='ignore')
+
+    df_long = pd.merge
+        df_long,
+        gdf_metadata_unique,
+        on=Config.STATION_NAME_COL,
+        how='left'
+    )
     
     enso_cols = ['id', Config.DATE_COL, Config.ENSO_ONI_COL, 'temp_sst', 'temp_media']
     existing_enso_cols = [col for col in enso_cols if col in df_precip_raw.columns]
