@@ -230,7 +230,7 @@ def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded
     cols_to_drop_from_long = [c for c in existing_metadata_cols if c != Config.STATION_NAME_COL and c in df_long.columns]
     df_long.drop(columns=cols_to_drop_from_long, inplace=True, errors='ignore')
 
-    df_long = pd.merge
+    df_long = pd.merge(
         df_long,
         gdf_metadata_unique,
         on=Config.STATION_NAME_COL,
