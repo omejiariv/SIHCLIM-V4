@@ -232,7 +232,7 @@ def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded
 
     df_long = pd.merge(
         df_long,
-        gdf_stations [existing_metadata_cols].drop_duplicates (subset=[Config.STATION_NAME_COL]),
+        gdf_metadata_unique,
         how='left'
     )
     
