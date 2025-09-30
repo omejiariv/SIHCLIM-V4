@@ -140,6 +140,14 @@ def load_and_process_all_data(uploaded_file_mapa, uploaded_file_precip, uploaded
         
     df_stations_raw[lon_col] = standardize_numeric_column(df_stations_raw[lon_col])
     df_stations_raw[lat_col] = standardize_numeric_column(df_stations_raw[lat_col])
+    if Config.MUNICIPALITY_COL in df_stations_raw.columns:
+        df_stations_raw[Config.MUNICIPALITY_COL] = \
+            df_stations_raw[Config.MUNICIPALITY_COL].astype(str).str.strip().replace('nan', '')
+       
+    if Config.REGION_COL in df_stations_raw.columns:
+        df_stations_raw[Config.REGION_COL] = \
+            df_stations_raw[Config.REGION_COL].astype(str).str.strip().replace('nan', '')
+    
     if Config.ET_COL in df_stations_raw.columns:
         df_stations_raw[Config.ET_COL] = standardize_numeric_column(df_stations_raw[Config.ET_COL])
     
