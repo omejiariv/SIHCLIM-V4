@@ -398,14 +398,14 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
     # --- ENRIQUECIMIENTO DE DATAFRAMES CON METADATA (MUNICIPIO, ALTITUD) ---
     metadata_cols = [Config.STATION_NAME_COL, Config.MUNICIPALITY_COL, Config.ALTITUDE_COL]
     gdf_metadata = gdf_filtered[metadata_cols].drop_duplicates(subset=[Config.STATION_NAME_COL]).copy() 
-    # ---> AÑADIR ESTE BLOQUE DE LIMPIEZA EXPLÍCITA:
-    # A. Altitud a entero (cuantitativo para :Q de Altair)
+    
     if Config.ALTITUDE_COL in gdf_metadata.columns:
-        gdf_metadata[Config.ALTITUDE_COL] = pd.to_numeric(gdf_metadata[Config.ALTITUDE_COL], errors='coerce').fillna(-9999).astype(int)
+        gdf_metadata[Config.ALTITUDE_COL] = pd.to_numeric(
+            gdf_metadata[Config.ALTITUDE_COL], errors='coerce'
+        ).fillna(-9999).astype(int)
 
-    # B. Municipio a String (nominal para :N de Altair)
     if Config.MUNICIPALITY_COL in gdf_metadata.columns:
-        gdf_metadata[Config.MUNICIPALITY_COL] = gdf_metadata[Config.MUNICIPALITY_COL].astype(str).str.strip()
+    gdf_metadata[Config.MUNICIPALITY_COL] = gdf_metadata[Config.MUNICIPALITY_COL].astype(str).str.strip().replace('nan', 'Sin Dato')
     
     df_anual_rich = df_anual_melted.merge(gdf_metadata, on=Config.STATION_NAME_COL, how='left')
     df_monthly_rich = df_monthly_filtered.merge(gdf_metadata, on=Config.STATION_NAME_COL, how='left')
