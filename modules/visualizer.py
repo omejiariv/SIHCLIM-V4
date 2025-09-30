@@ -398,7 +398,7 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
     # --- ENRIQUECIMIENTO DE DATAFRAMES CON METADATA (MUNICIPIO, ITUD) ---
     metadata_cols = [Config.STATION_NAME_COL, Config.MUNICIPALITY_COL, Config.ALTITUDE_COL]
     gdf_metadata = gdf_filtered[metadata_cols].drop_duplicates(subset=[Config.STATION_NAME_COL]).copy() 
-    
+    gdf_metadata[Config.ALTITUDE_COL] = pd.to_numeric(gdf_metadata[Config.ALTITUDE_COL], errors='coerce').fillna(0).astype(int)
     df_anual_rich = df_anual_melted.merge(gdf_metadata, on=Config.STATION_NAME_COL, how='left')
     df_monthly_rich = df_monthly_filtered.merge(gdf_metadata, on=Config.STATION_NAME_COL, how='left')
     
