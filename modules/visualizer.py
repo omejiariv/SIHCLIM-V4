@@ -750,9 +750,11 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
                 st.rerun()
 
         with col_gif:
-            gif_path = Config.GIF_PATH  # "assets/PPAM.gif"
+            gif_path = Config.GIF_PATH # "assets/PPAM.gif"
             if os.path.exists(gif_path):
                 try:
+                    with open(gif_path, "rb") as f:
+                        gif_bytes = f.read()
                     st.image(gif_path, caption="Animación PPAM", width=600)
                         
                 except Exception as e:
