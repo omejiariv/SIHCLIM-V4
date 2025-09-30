@@ -753,14 +753,14 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
             gif_path = Config.GIF_PATH # "assets/PPAM.gif"
             if os.path.exists(gif_path):
                 try:
-                # Leer el archivo GIF como binario
+                    # Leer el archivo GIF como binario
                     with open(gif_path, "rb") as f:
                         gif_bytes = f.read()
             
-                # Usar los bytes para mostrar el GIF (sin el argumento 'key')
-                st.image(gif_bytes, 
-                        caption="Animación PPAM", 
-                        width=600)
+                    # Usar los bytes para mostrar el GIF (sin el argumento 'key')
+                    st.image(gif_bytes, 
+                            caption="Animación PPAM", 
+                            width=600)
                 except Exception as e:
                     st.error(f"Ocurrió un error al intentar mostrar el GIF: {e}")
             else:
