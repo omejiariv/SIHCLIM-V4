@@ -971,7 +971,7 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
                 if fig1: st.plotly_chart(fig1, use_container_width=True, config={})
                 else: st.info(error1)
             with map_col2:
-                if fig2: st.plotly_chart(fig2, width='stretch')
+                if fig2: st.plotly_chart(fig2, use_container_width=True, config={})
                 else: st.info(error2)
                 
             st.markdown("---")
