@@ -165,7 +165,6 @@ def create_anomaly_chart(df_plot):
     if Config.ENSO_ONI_COL in df_plot.columns:
         df_plot_enso = df_plot.dropna(subset=[Config.ENSO_ONI_COL])
         
-        # Highlight El Niño periods
         nino_periods = df_plot_enso[df_plot_enso[Config.ENSO_ONI_COL] >= 0.5]
         for _, row in nino_periods.iterrows():
             fig.add_vrect(
@@ -174,7 +173,6 @@ def create_anomaly_chart(df_plot):
                 fillcolor="red", opacity=0.15, layer="below", line_width=0
             )
             
-        # Highlight La Niña periods
         nina_periods = df_plot_enso[df_plot_enso[Config.ENSO_ONI_COL] <= -0.5]
         for _, row in nina_periods.iterrows():
             fig.add_vrect(
@@ -183,7 +181,6 @@ def create_anomaly_chart(df_plot):
                 fillcolor="blue", opacity=0.15, layer="below", line_width=0
             )
 
-        # Add hidden traces for legend
         fig.add_trace(go.Scatter(
             x=[None], y=[None], mode='markers',
             marker=dict(symbol='square', color='rgba(255, 0, 0, 0.3)'),
@@ -265,12 +262,10 @@ def generate_compare_map_popup_html(row, df_anual_melted_full_period):
     """Generates a specific HTML popup for the map comparison tab."""
     station_name = row.get(Config.STATION_NAME_COL, 'N/A')
     
-    # 1. Get basic info from the row
     municipality = row.get(Config.MUNICIPALITY_COL, 'N/A')
     altitude = row.get(Config.ALTITUDE_COL, 'N/A')
     precip_year = row.get(Config.PRECIPITATION_COL, 'N/A')
     
-    # 2. Calculate Avg/Min/Max for the station over the entire selected period
     station_full_data = df_anual_melted_full_period[
         df_anual_melted_full_period[Config.STATION_NAME_COL] == station_name
     ]
@@ -280,11 +275,9 @@ def generate_compare_map_popup_html(row, df_anual_melted_full_period):
         precip_max = f"{station_full_data[Config.PRECIPITATION_COL].max():.0f}"
         precip_min = f"{station_full_data[Config.PRECIPITATION_COL].min():.0f}"
 
-    # 3. Format values
     altitude_formatted = f"{altitude:.0f}" if isinstance(altitude, (int, float)) and np.isfinite(altitude) else "N/A"
     precip_year_formatted = f"{precip_year:.0f}" if isinstance(precip_year, (int, float)) and np.isfinite(precip_year) else "N/A"
 
-    # 4. Construct HTML
     html = f"""
     <h4>{station_name}</h4>
     <p><b>Municipio:</b> {municipality}</p>
@@ -301,12 +294,10 @@ def generate_temporal_map_popup_html(row, df_anual_melted_full_period):
     """Generates a specific HTML popup for the temporal map explorer tab."""
     station_name = row.get(Config.STATION_NAME_COL, 'N/A')
 
-    # 1. Get basic info
     municipality = row.get(Config.MUNICIPALITY_COL, 'N/A')
     altitude = row.get(Config.ALTITUDE_COL, 'N/A')
     precip_year = row.get(Config.PRECIPITATION_COL, 'N/A')
 
-    # 2. Calculate Min/Max for the station over the entire period
     station_full_data = df_anual_melted_full_period[
         df_anual_melted_full_period[Config.STATION_NAME_COL] == station_name
     ]
@@ -316,11 +307,9 @@ def generate_temporal_map_popup_html(row, df_anual_melted_full_period):
         precip_max = f"{station_full_data[Config.PRECIPITATION_COL].max():.0f}"
         precip_min = f"{station_full_data[Config.PRECIPITATION_COL].min():.0f}"
 
-    # 3. Format values
     altitude_formatted = f"{altitude:.0f}" if isinstance(altitude, (int, float)) and np.isfinite(altitude) else "N/A"
     precip_year_formatted = f"{precip_year:.0f}" if isinstance(precip_year, (int, float)) and np.isfinite(precip_year) else "N/A"
 
-    # 4. Construct HTML
     html = f"""
     <h4>{station_name}</h4>
     <p><b>Municipio:</b> {municipality}</p>
@@ -333,7 +322,6 @@ def generate_temporal_map_popup_html(row, df_anual_melted_full_period):
     """
     return folium.Popup(html, max_width=300)
 
-# --- CHART AND MAP HELPER FUNCTIONS
 def create_folium_map(location, zoom, base_map_config, overlays_config, fit_bounds_data=None):
     """Creates a Folium map with robust centering logic."""
     m = folium.Map(
@@ -429,7 +417,7 @@ def display_spatial_distribution_tab(gdf_filtered, stations_for_analysis, df_anu
         with map_col:
             if not gdf_display.empty:
                 m = create_folium_map(
-                    location=[4.57, -74.29],  # Default center
+                    location=[4.57, -74.29],
                     zoom=5,
                     base_map_config=selected_base_map_config,
                     overlays_config=selected_overlays_config,
@@ -545,8 +533,14 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
     if Config.MUNICIPALITY_COL in gdf_metadata.columns:
         gdf_metadata[Config.MUNICIPALITY_COL] = gdf_metadata[Config.MUNICIPALITY_COL].astype(str).str.strip().replace('nan', 'Sin Dato')
     
-    df_anual_rich = df_anual_melted.merge(gdf_metadata, on=Config.STATION_NAME_COL, how='left')
-    df_monthly_rich = df_monthly_filtered.merge(gdf_metadata, on=Config.STATION_NAME_COL, how='left')
+    # --- SOLUCIÓN: Evitar columnas duplicadas antes del merge ---
+    cols_to_drop = [col for col in [Config.MUNICIPALITY_COL, Config.ALTITUDE_COL] if col != Config.STATION_NAME_COL]
+    
+    df_anual_pre_merge = df_anual_melted.drop(columns=cols_to_drop, errors='ignore')
+    df_anual_rich = df_anual_pre_merge.merge(gdf_metadata, on=Config.STATION_NAME_COL, how='left')
+    
+    df_monthly_pre_merge = df_monthly_filtered.drop(columns=cols_to_drop, errors='ignore')
+    df_monthly_rich = df_monthly_pre_merge.merge(gdf_metadata, on=Config.STATION_NAME_COL, how='left')
     
     # --- PESTAÑAS DE VISUALIZACIÓN
     sub_tab_anual, sub_tab_mensual, sub_tab_comparacion, sub_tab_distribucion, sub_tab_acumulada, sub_tab_altitud, sub_tab_regional = st.tabs([
@@ -614,7 +608,7 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                         xaxis={'categoryorder': 'total descending' if "Mayor a Menor" in sort_order else ('total ascending' if "Menor a Mayor" in sort_order else 'trace')}
                     )
                     st.plotly_chart(fig_avg, use_container_width=True)
-                else:  # Gráfico de Cajas
+                else:
                     df_anual_filtered_for_box = df_anual_rich[df_anual_rich[Config.STATION_NAME_COL].isin(stations_for_analysis)]
                     fig_box_annual = px.box(
                         df_anual_filtered_for_box, x=Config.STATION_NAME_COL,
@@ -645,8 +639,6 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
 
                 with chart_col:
                     if chart_type != "Gráfico de Cajas (Distribución Mensual)":
-                        st.dataframe(df_monthly_rich.head()) 
-                        
                         base_chart = alt.Chart(df_monthly_rich).encode(
                             x=alt.X(f'{Config.DATE_COL}:T', title='Fecha'),
                             y=alt.Y(f'{Config.PRECIPITATION_COL}:Q', title='Precipitación (mm)'),
@@ -772,7 +764,7 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
                     st.plotly_chart(fig_violin_anual, use_container_width=True)
             else:
                 st.warning("No hay datos anuales para mostrar la distribución.")
-        else: # Mensual
+        else:
             if not df_monthly_rich.empty:
                 if plot_type == "Histograma":
                     fig_hist_mensual = px.histogram(
