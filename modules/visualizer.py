@@ -645,6 +645,8 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
 
                 with chart_col:
                     if chart_type != "Gráfico de Cajas (Distribución Mensual)":
+                        st.dataframe(df_monthly_rich.head()) 
+                        
                         base_chart = alt.Chart(df_monthly_rich).encode(
                             x=alt.X(f'{Config.DATE_COL}:T', title='Fecha'),
                             y=alt.Y(f'{Config.PRECIPITATION_COL}:Q', title='Precipitación (mm)'),
