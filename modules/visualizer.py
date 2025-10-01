@@ -173,21 +173,21 @@ def generate_station_popup_html(row, df_anual_melted, include_chart=False, df_mo
             precip_media_anual = 0
         # Generate the text part of the HTML
     
-    if precip_media_anual is None or not np.isfinite(precip_media_anual):
-        precip_formatted = "N/A"
-    else:
-        precip_formatted = f"{precip_media_anual:.0f}"
+        if precip_media_anual is None or not np.isfinite(precip_media_anual):
+            precip_formatted = "N/A"
+        else:
+            precip_formatted = f"{precip_media_anual:.0f}"
 
-    text_html = f"<h4>{station_name}</h4>"
-    text_html += f"<p><b>Municipio:</b> {row.get(Config.MUNICIPALITY_COL, 'N/A')}</p>"
-    text_html += f"<p><b>Altitud:</b> {row.get(Config.ALTITUDE_COL, 'N/A')} m</p>"
-    text_html += f"<p><b>Promedio Anual:</b> {precip_formatted} mm</p>" # Usa la variable formateada
-    text_html += f"<small>(Calculado con <b>{valid_years}</b> de <b>{total_years_in_period}</b> años del período)</small>"
+        text_html = f"<h4>{station_name}</h4>"
+        text_html += f"<p><b>Municipio:</b> {row.get(Config.MUNICIPALITY_COL, 'N/A')}</p>"
+        text_html += f"<p><b>Altitud:</b> {row.get(Config.ALTITUDE_COL, 'N/A')} m</p>"
+        text_html += f"<p><b>Promedio Anual:</b> {precip_formatted} mm</p>" # Usa la variable formateada
+        text_html += f"<small>(Calculado con <b>{valid_years}</b> de <b>{total_years_in_period}</b> años del período)</small>"
 
-    full_html = text_html
+        full_html = text_html
         
-    # Try to generate the chart part of the HTML (Minigráficos)
-    chart_html = ""
+        # Try to generate the chart part of the HTML (Minigráficos)
+        chart_html = ""
     
         if include_chart and df_monthly_filtered is not None:
             df_station_monthly_avg = df_monthly_filtered[df_monthly_filtered[Config.STATION_NAME_COL] ==
