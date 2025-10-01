@@ -688,6 +688,28 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
         st.warning("Por favor, seleccione al menos una estación para ver esta sección.")
         return
 
+    # --- INICIO DEL BLOQUE DE DIAGNÓSTICO ---
+    with st.expander("🔬 Diagnóstico del archivo GIF", expanded=True):
+        st.info("Esta sección te ayudará a verificar si la ruta al archivo .gif es correcta.")
+        
+        # Obtenemos la ruta configurada en config.py
+        gif_path_configurada = Config.GIF_PATH
+        st.write(f"**Ruta configurada en `Config.GIF_PATH`:**")
+        st.code(gif_path_configurada, language="text")
+
+        # Verificamos si el archivo existe en esa ruta
+        if os.path.exists(gif_path_configurada):
+            st.success("✅ ¡ÉXITO! El archivo SÍ fue encontrado en la ruta especificada.")
+            st.write("Si aun así la animación no funciona, el problema podría ser el archivo GIF en sí o un problema de caché de Streamlit.")
+        else:
+            st.error("❌ ¡ERROR! El archivo NO fue encontrado en la ruta especificada.")
+            st.write("Verifica lo siguiente:")
+            st.markdown("""
+                * **¿Hay un error de tipeo?** Asegúrate que el nombre del archivo sea `PPAM.gif` y no `ppam.gif` o `PPAM.GIF`. Los nombres son sensibles a mayúsculas/minúsculas.
+                * **¿Está el archivo en la carpeta correcta?** Compara la ruta de arriba con la ubicación real de tu archivo en el explorador de archivos.
+            """)
+    # --- FIN DEL BLOQUE DE DIAGNÓSTICO ---    
+    
     tab_names = ["Animación GIF (Antioquia)", "Visualización Temporal", "Gráfico de Carrera", "Mapa Animado", "Comparación de Mapas", "Interpolación Comparativa"]
     gif_tab, temporal_tab, race_tab, anim_tab, compare_tab, kriging_tab = st.tabs(tab_names)
 
