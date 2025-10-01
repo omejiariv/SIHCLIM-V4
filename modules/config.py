@@ -16,7 +16,7 @@ class Config:
 
     # 3. Construimos las rutas completas y correctas a los archivos
     GIF_PATH = os.path.join(_PROJECT_ROOT, 'assets', 'PPAM.gif')
-    LOGO_PATH = os.path.join(_PROJECT_ROOT, 'assets', 'cuencaverde_logo.png')
+    LOGO_PATH = os.path.join(_PROJECT_ROOT, 'assets', 'CuencaVerde_Logo.jpg')
 
     WELCOME_TEXT = """
     "El futuro, también depende del pasado y de nuestra capacidad presente para anticiparlo" -- omr.
