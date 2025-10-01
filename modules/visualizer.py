@@ -178,7 +178,7 @@ def generate_station_popup_html(row, df_anual_melted, include_chart=False, df_mo
         else:
             precip_formatted = f"{precip_media_anual:.0f}"
 
-        text_html = f"<h4>{station_name}</h4>" # 8 ESPACIOS: Es la primera línea.
+        text_html = f"<h4>{station_name}</h4>"
         text_html += f"<p><b>Municipio:</b> {row.get(Config.MUNICIPALITY_COL, 'N/A')}</p>"
         text_html += f"<p><b>Altitud:</b> {row.get(Config.ALTITUDE_COL, 'N/A')} m</p>"
         text_html += f"<p><b>Promedio Anual:</b> {precip_formatted} mm</p>"
