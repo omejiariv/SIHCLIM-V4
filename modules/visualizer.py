@@ -186,7 +186,7 @@ def generate_station_popup_html(row, df_anual_melted, include_chart=False, df_mo
     <p><b>Promedio Anual:</b> {precip_formatted} mm</p>
     <small>(Calculado con <b>{valid_years}</b> de <b>{total_years_in_period}</b> años del
     período)</small>
-    """    
+    """
     
         full_html = text_html
         # Try to generate the chart part of the HTML (Minigráficos)
