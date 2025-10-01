@@ -7,8 +7,17 @@ import pandas as pd
 class Config:
     # --- Configuración de la Aplicación ---
     APP_TITLE = "Sistema de Información de Lluvias y Clima en el norte de la región Andina"
-    LOGO_PATH = "assets/CuencaVerde_Logo.jpg" 
-    GIF_PATH = "assets/PPAM.gif"
+    # --- RUTAS ROBUSTAS A LOS ARCHIVOS DEL PROYECTO ---
+    # 1. Obtenemos la ruta a la carpeta donde está este archivo (la carpeta 'modules')
+    _MODULES_DIR = os.path.dirname(__file__)
+
+    # 2. Subimos un nivel para llegar a la raíz del proyecto
+    _PROJECT_ROOT = os.path.abspath(os.path.join(_MODULES_DIR, '..'))
+
+    # 3. Construimos las rutas completas y correctas a los archivos
+    GIF_PATH = os.path.join(_PROJECT_ROOT, 'assets', 'PPAM.gif')
+    LOGO_PATH = os.path.join(_PROJECT_ROOT, 'assets', 'cuencaverde_logo.png')
+
     WELCOME_TEXT = """
     "El futuro, también depende del pasado y de nuestra capacidad presente para anticiparlo" -- omr.
 
