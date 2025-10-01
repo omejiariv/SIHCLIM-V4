@@ -204,23 +204,20 @@ def create_anomaly_chart(df_plot):
     )
     return fig
 
-# --- FUNCIÓN AUXILIAR PARA POPUP
+# --- FUNCIONES AUXILIARES PARA POPUPS ---
 def generate_station_popup_html(row, df_anual_melted, include_chart=False, df_monthly_filtered=None):
-    """Robustly generates the HTML content for a station's popup."""
+    """Generates the HTML content for a station's popup."""
     full_html = ""
     station_name = row.get(Config.STATION_NAME_COL, 'N/A')
     
     try:
-        # Get the year range from the session state
         year_range_val = st.session_state.get('year_range', (2000, 2020))
         if isinstance(year_range_val, tuple) and len(year_range_val) == 2 and isinstance(year_range_val[0], int):
             year_min, year_max = year_range_val
-        else:  # Fallback for other modes
+        else:
             year_min, year_max = st.session_state.get('year_range_single', (2000, 2020))
         
         total_years_in_period = year_max - year_min + 1
-        
-        # Calculate statistics
         df_station_data = df_anual_melted[df_anual_melted[Config.STATION_NAME_COL] == station_name]
         
         if not df_station_data.empty:
@@ -234,11 +231,7 @@ def generate_station_popup_html(row, df_anual_melted, include_chart=False, df_mo
             valid_years = 0
             precip_media_anual = 0
             
-        # Generate the text part of the HTML
-        if precip_media_anual is None or not np.isfinite(precip_media_anual):
-            precip_formatted = "N/A"
-        else:
-            precip_formatted = f"{precip_media_anual:.0f}"
+        precip_formatted = f"{precip_media_anual:.0f}" if pd.notna(precip_media_anual) else "N/A"
             
         text_html = f"<h4>{station_name}</h4>"
         text_html += f"<p><b>Municipio:</b> {row.get(Config.MUNICIPALITY_COL, 'N/A')}</p>"
@@ -248,44 +241,26 @@ def generate_station_popup_html(row, df_anual_melted, include_chart=False, df_mo
         
         full_html = text_html
         
-        # Try to generate the chart part of the HTML (Minigráficos)
         chart_html = ""
         if include_chart and df_monthly_filtered is not None:
             df_station_monthly = df_monthly_filtered[df_monthly_filtered[Config.STATION_NAME_COL] == station_name]
-            
             if not df_station_monthly.empty:
                 df_monthly_avg = df_station_monthly.groupby(Config.MONTH_COL)[Config.PRECIPITATION_COL].mean().reset_index()
-                
                 if not df_monthly_avg.empty:
-                    fig = go.Figure(data=[go.Bar(
-                        x=df_monthly_avg[Config.MONTH_COL],
-                        y=df_monthly_avg[Config.PRECIPITATION_COL]
-                    )])
-                    fig.update_layout(
-                        title_text="Ppt. Mensual Media",
-                        xaxis_title="Mes",
-                        yaxis_title="Ppt. (mm)",
-                        height=250,
-                        width=350,
-                        margin=dict(t=40, b=20, l=20, r=20)
-                    )
+                    fig = go.Figure(data=[go.Bar(x=df_monthly_avg[Config.MONTH_COL], y=df_monthly_avg[Config.PRECIPITATION_COL])])
+                    fig.update_layout(title_text="Ppt. Mensual Media", xaxis_title="Mes", yaxis_title="Ppt. (mm)", height=250, width=350, margin=dict(t=40, b=20, l=20, r=20))
                     chart_html = fig.to_html(full_html=False, include_plotlyjs='cdn')
         
-        # Combine text and chart if chart was created successfully
         if chart_html:
             sanitized_chart_html = chart_html.replace('"', '&quot;')
             full_html = text_html + "<hr>" + f'<iframe srcdoc="{sanitized_chart_html}" width="370" height="270" frameborder="0"></iframe>'
             
     except Exception as e:
-        st.warning(f"Could not generate the full popup content for '{station_name}'. Reason: {e}")
-        if 'text_html' in locals():
-            full_html = text_html
-        else:
-            full_html = f"<h4>{station_name}</h4><p>Error loading popup data.</p>"
+        st.warning(f"Could not generate popup for '{station_name}'. Reason: {e}")
+        full_html = f"<h4>{station_name}</h4><p>Error loading data.</p>"
             
     return folium.Popup(full_html, max_width=450)
 
-# --- NUEVA FUNCIÓN PARA POPUPS DE MAPAS COMPARATIVOS ---
 def generate_compare_map_popup_html(row, df_anual_melted_full_period):
     """Generates a specific HTML popup for the map comparison tab."""
     station_name = row.get(Config.STATION_NAME_COL, 'N/A')
@@ -295,13 +270,13 @@ def generate_compare_map_popup_html(row, df_anual_melted_full_period):
     altitude = row.get(Config.ALTITUDE_COL, 'N/A')
     precip_year = row.get(Config.PRECIPITATION_COL, 'N/A')
     
-    # 2. Calculate Min/Max for the station over the entire selected period
+    # 2. Calculate Avg/Min/Max for the station over the entire selected period
     station_full_data = df_anual_melted_full_period[
         df_anual_melted_full_period[Config.STATION_NAME_COL] == station_name
     ]
-    precip_max = "N/A"
-    precip_min = "N/A"
+    precip_avg, precip_max, precip_min = "N/A", "N/A", "N/A"
     if not station_full_data.empty:
+        precip_avg = f"{station_full_data[Config.PRECIPITATION_COL].mean():.0f}"
         precip_max = f"{station_full_data[Config.PRECIPITATION_COL].max():.0f}"
         precip_min = f"{station_full_data[Config.PRECIPITATION_COL].min():.0f}"
 
@@ -314,6 +289,43 @@ def generate_compare_map_popup_html(row, df_anual_melted_full_period):
     <h4>{station_name}</h4>
     <p><b>Municipio:</b> {municipality}</p>
     <p><b>Altitud:</b> {altitude_formatted} m</p>
+    <p><b>Promedio Anual (período):</b> {precip_avg} mm</p>
+    <hr>
+    <p><b>Precipitación del Año:</b> {precip_year_formatted} mm</p>
+    <p><small><b>Máxima del período:</b> {precip_max} mm</small></p>
+    <p><small><b>Mínima del período:</b> {precip_min} mm</small></p>
+    """
+    return folium.Popup(html, max_width=300)
+
+def generate_temporal_map_popup_html(row, df_anual_melted_full_period):
+    """Generates a specific HTML popup for the temporal map explorer tab."""
+    station_name = row.get(Config.STATION_NAME_COL, 'N/A')
+
+    # 1. Get basic info
+    municipality = row.get(Config.MUNICIPALITY_COL, 'N/A')
+    altitude = row.get(Config.ALTITUDE_COL, 'N/A')
+    precip_year = row.get(Config.PRECIPITATION_COL, 'N/A')
+
+    # 2. Calculate Min/Max for the station over the entire period
+    station_full_data = df_anual_melted_full_period[
+        df_anual_melted_full_period[Config.STATION_NAME_COL] == station_name
+    ]
+    precip_max, precip_min, precip_avg = "N/A", "N/A", "N/A"
+    if not station_full_data.empty:
+        precip_avg = f"{station_full_data[Config.PRECIPITATION_COL].mean():.0f}"
+        precip_max = f"{station_full_data[Config.PRECIPITATION_COL].max():.0f}"
+        precip_min = f"{station_full_data[Config.PRECIPITATION_COL].min():.0f}"
+
+    # 3. Format values
+    altitude_formatted = f"{altitude:.0f}" if isinstance(altitude, (int, float)) and np.isfinite(altitude) else "N/A"
+    precip_year_formatted = f"{precip_year:.0f}" if isinstance(precip_year, (int, float)) and np.isfinite(precip_year) else "N/A"
+
+    # 4. Construct HTML
+    html = f"""
+    <h4>{station_name}</h4>
+    <p><b>Municipio:</b> {municipality}</p>
+    <p><b>Altitud:</b> {altitude_formatted} m</p>
+    <p><b>Promedio Anual (período):</b> {precip_avg} mm</p>
     <hr>
     <p><b>Precipitación del Año:</b> {precip_year_formatted} mm</p>
     <p><small><b>Máxima del período:</b> {precip_max} mm</small></p>
@@ -437,7 +449,7 @@ def display_spatial_distribution_tab(gdf_filtered, stations_for_analysis, df_anu
 
                 folium.LayerControl().add_to(m)
                 m.add_child(MiniMap(toggle_display=True))
-                folium_static(m, height=450, width=None) # Correct usage for 100% width
+                folium_static(m, height=450, width=None)
                 add_folium_download_button(m, "mapa_distribucion.html")
             else:
                 st.warning("No hay estaciones seleccionadas para mostrar en el mapa.")
@@ -942,8 +954,8 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
                     df_year_filtered = df_anual_melted_non_na[df_anual_melted_non_na[Config.YEAR_COL] == selected_year]
                     
                     if not df_year_filtered.empty:
-                        cols_to_merge = [Config.STATION_NAME_COL, Config.LATITUDE_COL, Config.LONGITUDE_COL, Config.MUNICIPALITY_COL, Config.ALTITUDE_COL, 'geometry']
-                        df_map_data = pd.merge(df_year_filtered, gdf_filtered[cols_to_merge].drop_duplicates(), on=Config.STATION_NAME_COL, how="inner")
+                        cols_to_merge = [Config.STATION_NAME_COL, Config.MUNICIPALITY_COL, Config.ALTITUDE_COL, 'geometry']
+                        df_map_data = pd.merge(df_year_filtered, gdf_filtered[cols_to_merge].drop_duplicates(subset=[Config.STATION_NAME_COL]), on=Config.STATION_NAME_COL, how="inner")
                         
                         if not df_map_data.empty:
                             min_val, max_val = df_anual_melted_non_na[Config.PRECIPITATION_COL].min(), df_anual_melted_non_na[Config.PRECIPITATION_COL].max()
@@ -951,7 +963,8 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
                             colormap = cm.LinearColormap(colors=plt.cm.viridis.colors, vmin=min_val, vmax=max_val)
                             
                             for _, row in df_map_data.iterrows():
-                                popup_object = generate_station_popup_html(row, df_anual_melted, include_chart=False, df_monthly_filtered=df_monthly_filtered)
+                                # Use the new specific popup function for this tab
+                                popup_object = generate_temporal_map_popup_html(row, df_anual_melted_non_na)
                                 folium.CircleMarker(
                                     location=[row['geometry'].y, row['geometry'].x], radius=5,
                                     color=colormap(row[Config.PRECIPITATION_COL]), fill=True,
@@ -1054,7 +1067,6 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
                     
                     for index, row in gpd_data.iterrows():
                         if pd.notna(row[Config.PRECIPITATION_COL]):
-                            # Use the new popup function
                             popup_object = generate_compare_map_popup_html(row, df_anual_full)
                             folium.CircleMarker(
                                 location=[row['geometry'].y, row['geometry'].x], radius=5,
@@ -1070,7 +1082,6 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
                 with col:
                     folium_static(m, height=450, width=None)
             
-            # CORRECCIÓN: Incluir Municipio y Altitud en los datos geográficos
             gdf_geometries = gdf_filtered[[
                 Config.STATION_NAME_COL, Config.MUNICIPALITY_COL, Config.ALTITUDE_COL, 'geometry'
             ]].drop_duplicates(subset=[Config.STATION_NAME_COL])
