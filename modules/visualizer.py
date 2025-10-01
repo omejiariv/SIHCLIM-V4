@@ -605,14 +605,27 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
         st.subheader("Distribución de la Precipitación")
         distribucion_tipo = st.radio("Seleccionar tipo de distribución:", ("Anual", "Mensual"), horizontal=True)
         plot_type = st.radio("Seleccionar tipo de gráfico:", ("Histograma", "Gráfico de Violin"), horizontal=True, key="distribucion_plot_type")
+        
+        hover_info = [Config.MUNICIPALITY_COL, Config.ALTITUDE_COL]
+        
         if distribucion_tipo == "Anual":
             if not df_anual_rich.empty:
                 if plot_type == "Histograma":
-                    fig_hist_anual = px.histogram(df_anual_rich, x=Config.PRECIPITATION_COL, color=Config.STATION_NAME_COL, title=f'Distribución Anual de Precipitación ({year_min} - {year_max})', labels={Config.PRECIPITATION_COL: 'Precipitación Anual (mm)', 'count': 'Frecuencia'})
+                    fig_hist_anual = px.histogram(
+                        df_anual_rich, x=Config.PRECIPITATION_COL, color=Config.STATION_NAME_COL,
+                        title=f'Distribución Anual de Precipitación ({year_min} - {year_max})',
+                        labels={Config.PRECIPITATION_COL: 'Precipitación Anual (mm)', 'count': 'Frecuencia'},
+                        hover_data=hover_info
+                    )
                     fig_hist_anual.update_layout(height=500)
                     st.plotly_chart(fig_hist_anual, use_container_width=True)
                 else:
-                    fig_violin_anual = px.violin(df_anual_rich, y=Config.PRECIPITATION_COL, x=Config.STATION_NAME_COL, color=Config.STATION_NAME_COL, box=True, points="all", title='Distribución Anual con Gráfico de Violin', labels={Config.PRECIPITATION_COL: 'Precipitación Anual (mm)', Config.STATION_NAME_COL: 'Estación'})
+                    fig_violin_anual = px.violin(
+                        df_anual_rich, y=Config.PRECIPITATION_COL, x=Config.STATION_NAME_COL, color=Config.STATION_NAME_COL,
+                        box=True, points="all", title='Distribución Anual con Gráfico de Violin',
+                        labels={Config.PRECIPITATION_COL: 'Precipitación Anual (mm)', Config.STATION_NAME_COL: 'Estación'},
+                        hover_data=hover_info
+                    )
                     fig_violin_anual.update_layout(height=500)
                     st.plotly_chart(fig_violin_anual, use_container_width=True)
             else:
@@ -620,11 +633,21 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
         else:
             if not df_monthly_rich.empty:
                 if plot_type == "Histograma":
-                    fig_hist_mensual = px.histogram(df_monthly_rich, x=Config.PRECIPITATION_COL, color=Config.STATION_NAME_COL, title=f'Distribución Mensual de Precipitación ({year_min} - {year_max})', labels={Config.PRECIPITATION_COL: 'Precipitación Mensual (mm)', 'count': 'Frecuencia'})
+                    fig_hist_mensual = px.histogram(
+                        df_monthly_rich, x=Config.PRECIPITATION_COL, color=Config.STATION_NAME_COL,
+                        title=f'Distribución Mensual de Precipitación ({year_min} - {year_max})',
+                        labels={Config.PRECIPITATION_COL: 'Precipitación Mensual (mm)', 'count': 'Frecuencia'},
+                        hover_data=hover_info
+                    )
                     fig_hist_mensual.update_layout(height=500)
                     st.plotly_chart(fig_hist_mensual, use_container_width=True)
                 else:
-                    fig_violin_mensual = px.violin(df_monthly_rich, y=Config.PRECIPITATION_COL, x=Config.MONTH_COL, color=Config.STATION_NAME_COL, box=True, points="all", title='Distribución Mensual con Gráfico de Violin', labels={Config.MONTH_COL: 'Mes', Config.PRECIPITATION_COL: 'Precipitación Mensual (mm)', Config.STATION_NAME_COL: 'Estación'})
+                    fig_violin_mensual = px.violin(
+                        df_monthly_rich, y=Config.PRECIPITATION_COL, x=Config.MONTH_COL, color=Config.STATION_NAME_COL,
+                        box=True, points="all", title='Distribución Mensual con Gráfico de Violin',
+                        labels={Config.MONTH_COL: 'Mes', Config.PRECIPITATION_COL: 'Precipitación Mensual (mm)', Config.STATION_NAME_COL: 'Estación'},
+                        hover_data=hover_info
+                    )
                     fig_violin_mensual.update_layout(height=500)
                     st.plotly_chart(fig_violin_mensual, use_container_width=True)
             else:
@@ -633,8 +656,20 @@ def display_graphs_tab(df_anual_melted, df_monthly_filtered, stations_for_analys
     with sub_tab_acumulada:
         st.subheader("Precipitación Acumulada Anual")
         if not df_anual_rich.empty:
-            df_acumulada = df_anual_rich.groupby([Config.YEAR_COL, Config.STATION_NAME_COL])[Config.PRECIPITATION_COL].sum().reset_index()
-            fig_acumulada = px.bar(df_acumulada, x=Config.YEAR_COL, y=Config.PRECIPITATION_COL, color=Config.STATION_NAME_COL, title=f'Precipitación Acumulada por Año ({year_min} - {year_max})', labels={Config.YEAR_COL: 'Año', Config.PRECIPITATION_COL: 'Precipitación Acumulada (mm)'})
+            # MODIFICACIÓN: Enriquecer df_acumulada para los popups
+            df_acumulada = df_anual_rich.groupby([Config.YEAR_COL, Config.STATION_NAME_COL]).agg(
+                precipitation_sum=(Config.PRECIPITATION_COL, 'sum'),
+                municipio=(Config.MUNICIPALITY_COL, 'first'),
+                altitud=(Config.ALTITUDE_COL, 'first')
+            ).reset_index()
+            
+            fig_acumulada = px.bar(
+                df_acumulada, x=Config.YEAR_COL, y='precipitation_sum',
+                color=Config.STATION_NAME_COL,
+                title=f'Precipitación Acumulada por Año ({year_min} - {year_max})',
+                labels={Config.YEAR_COL: 'Año', 'precipitation_sum': 'Precipitación Acumulada (mm)'},
+                hover_data=['municipio', 'altitud']
+            )
             fig_acumulada.update_layout(barmode='group', height=500)
             st.plotly_chart(fig_acumulada, use_container_width=True)
         else:
