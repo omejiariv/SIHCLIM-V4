@@ -285,6 +285,42 @@ def generate_station_popup_html(row, df_anual_melted, include_chart=False, df_mo
             
     return folium.Popup(full_html, max_width=450)
 
+# --- NUEVA FUNCIÓN PARA POPUPS DE MAPAS COMPARATIVOS ---
+def generate_compare_map_popup_html(row, df_anual_melted_full_period):
+    """Generates a specific HTML popup for the map comparison tab."""
+    station_name = row.get(Config.STATION_NAME_COL, 'N/A')
+    
+    # 1. Get basic info from the row
+    municipality = row.get(Config.MUNICIPALITY_COL, 'N/A')
+    altitude = row.get(Config.ALTITUDE_COL, 'N/A')
+    precip_year = row.get(Config.PRECIPITATION_COL, 'N/A')
+    
+    # 2. Calculate Min/Max for the station over the entire selected period
+    station_full_data = df_anual_melted_full_period[
+        df_anual_melted_full_period[Config.STATION_NAME_COL] == station_name
+    ]
+    precip_max = "N/A"
+    precip_min = "N/A"
+    if not station_full_data.empty:
+        precip_max = f"{station_full_data[Config.PRECIPITATION_COL].max():.0f}"
+        precip_min = f"{station_full_data[Config.PRECIPITATION_COL].min():.0f}"
+
+    # 3. Format values
+    altitude_formatted = f"{altitude:.0f}" if isinstance(altitude, (int, float)) and np.isfinite(altitude) else "N/A"
+    precip_year_formatted = f"{precip_year:.0f}" if isinstance(precip_year, (int, float)) and np.isfinite(precip_year) else "N/A"
+
+    # 4. Construct HTML
+    html = f"""
+    <h4>{station_name}</h4>
+    <p><b>Municipio:</b> {municipality}</p>
+    <p><b>Altitud:</b> {altitude_formatted} m</p>
+    <hr>
+    <p><b>Precipitación del Año:</b> {precip_year_formatted} mm</p>
+    <p><small><b>Máxima del período:</b> {precip_max} mm</small></p>
+    <p><small><b>Mínima del período:</b> {precip_min} mm</small></p>
+    """
+    return folium.Popup(html, max_width=300)
+
 # --- CHART AND MAP HELPER FUNCTIONS
 def create_folium_map(location, zoom, base_map_config, overlays_config, fit_bounds_data=None):
     """Creates a Folium map with robust centering logic."""
@@ -1008,7 +1044,7 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
                 
                 colormap = cm.LinearColormap(colors=plt.cm.viridis.colors, vmin=color_range[0], vmax=color_range[1])
 
-            def create_compare_map(data, year, col, gdf_stations_info):
+            def create_compare_map(data, year, col, gdf_stations_info, df_anual_full):
                 col.markdown(f"**Precipitación en {year}**")
                 m = create_folium_map([6.24, -75.58], 6, selected_base_map_config, selected_overlays_config)
                 
@@ -1016,9 +1052,10 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
                     data_with_geom = pd.merge(data, gdf_stations_info, on=Config.STATION_NAME_COL)
                     gpd_data = gpd.GeoDataFrame(data_with_geom, geometry='geometry', crs=gdf_stations_info.crs)
                     
-                    for _, row in gpd_data.iterrows():
+                    for index, row in gpd_data.iterrows():
                         if pd.notna(row[Config.PRECIPITATION_COL]):
-                            popup_object = generate_station_popup_html(row, df_anual_melted)
+                            # Use the new popup function
+                            popup_object = generate_compare_map_popup_html(row, df_anual_full)
                             folium.CircleMarker(
                                 location=[row['geometry'].y, row['geometry'].x], radius=5,
                                 color=colormap(row[Config.PRECIPITATION_COL]),
@@ -1032,13 +1069,17 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
                 folium.LayerControl().add_to(m)
                 with col:
                     folium_static(m, height=450, width=None)
+            
+            # CORRECCIÓN: Incluir Municipio y Altitud en los datos geográficos
+            gdf_geometries = gdf_filtered[[
+                Config.STATION_NAME_COL, Config.MUNICIPALITY_COL, Config.ALTITUDE_COL, 'geometry'
+            ]].drop_duplicates(subset=[Config.STATION_NAME_COL])
 
-            gdf_geometries = gdf_filtered[[Config.STATION_NAME_COL, 'geometry']].drop_duplicates()
             data_year1 = df_anual_valid[df_anual_valid[Config.YEAR_COL] == year1]
             data_year2 = df_anual_valid[df_anual_valid[Config.YEAR_COL] == year2]
             
-            create_compare_map(data_year1, year1, map_col1, gdf_geometries)
-            create_compare_map(data_year2, year2, map_col2, gdf_geometries)
+            create_compare_map(data_year1, year1, map_col1, gdf_geometries, df_anual_valid)
+            create_compare_map(data_year2, year2, map_col2, gdf_geometries, df_anual_valid)
         else:
             st.warning("Se necesitan datos de al menos dos años diferentes para generar la Comparación de Mapas.")
 
