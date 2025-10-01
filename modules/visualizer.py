@@ -757,12 +757,16 @@ def display_advanced_maps_tab(gdf_filtered, stations_for_analysis, df_anual_melt
                 st.rerun()
 
         with col_gif:
+            
             gif_path = Config.GIF_PATH
             if os.path.exists(gif_path):
                 try:
                     with open(gif_path, "rb") as f:
                         gif_bytes = f.read()
-                    st.image(gif_bytes, caption="Animación PPAM", width=600)
+                    gif_b64 = base64.b64encode(gif_bytes).decode("utf-8")
+                    html_string = f'<img src="data:image/gif;base64,{gif_b64}" width="600" alt="Animación PPAM">'
+                    st.markdown(html_string, unsafe_allow_html=True)
+                    
                 except Exception as e:
                     st.error(f"Ocurrió un error al intentar mostrar el GIF: {e}")
             else:
