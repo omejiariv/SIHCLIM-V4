@@ -172,14 +172,22 @@ def generate_station_popup_html(row, df_anual_melted, include_chart=False, df_mo
             valid_years = 0
             precip_media_anual = 0
         # Generate the text part of the HTML
-        text_html = f"""
+    
+    if precip_media_anual is None or not np.isfinite(precip_media_anual):
+        precip_formatted = "N/A"
+    else:
+        # Formateo explícito para evitar problemas de f-string en el HTML
+        precip_formatted = f"{precip_media_anual:.0f}" 
+
+    text_html = f"""
     <h4>{station_name}</h4>
     <p><b>Municipio:</b> {row.get(Config.MUNICIPALITY_COL, 'N/A')}</p>
     <p><b>Altitud:</b> {row.get(Config.ALTITUDE_COL, 'N/A')} m</p>
-    <p><b>Promedio Anual:</b> {precip_media_anual:.0f} mm</p>
+    <p><b>Promedio Anual:</b> {precip_formatted} mm</p>
     <small>(Calculado con <b>{valid_years}</b> de <b>{total_years_in_period}</b> años del
     período)</small>
-    """
+    """    
+    
         full_html = text_html
         # Try to generate the chart part of the HTML (Minigráficos)
         chart_html = ""
