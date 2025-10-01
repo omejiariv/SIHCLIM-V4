@@ -1,8 +1,8 @@
 # modules/config.py
 
+import os
 import streamlit as st
 import pandas as pd
-import os
 
 class Config:
     # --- Configuración de la Aplicación ---
